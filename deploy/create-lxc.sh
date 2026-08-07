@@ -6,18 +6,18 @@
 # and never pass through here.
 set -euo pipefail
 
-CTID="${CTID:-131}"
+CTID="${CTID:-112}"
 HOSTNAME="${HOSTNAME_:-fileshare}"
-STORAGE="${STORAGE:-local-lvm}"
+STORAGE="${STORAGE:-vm-storage}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
-TEMPLATE="${TEMPLATE:-debian-12-standard_12.7-1_amd64.tar.zst}"
+TEMPLATE="${TEMPLATE:-debian-12-standard_12.12-1_amd64.tar.zst}"
 BRIDGE="${BRIDGE:-vmbr0}"
 # Static keeps the tunnel target predictable; set IP=dhcp to use DHCP instead.
-IP="${IP:-192.168.2.31/24}"
+IP="${IP:-192.168.2.26/24}"
 GATEWAY="${GATEWAY:-192.168.2.254}"
 CORES="${CORES:-2}"
 MEMORY="${MEMORY:-1024}"
-DISK="${DISK:-4}"
+DISK="${DISK:-8}"
 
 if ! pveam list "$TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
   echo "==> Downloading template $TEMPLATE"
