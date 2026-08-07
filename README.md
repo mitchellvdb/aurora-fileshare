@@ -42,6 +42,15 @@ writes to disk incrementally instead of buffering the whole file in memory. On
 browsers where that is unavailable (no secure context, or no transferable
 streams) it falls back to an in-memory Blob and says so in the UI.
 
+When a share holds several files, the recipient can take them as one `.zip`.
+The archive is muxed on the fly as the bytes arrive - STORE method, no
+compression, with CRC-32s written after each payload in a data descriptor, so
+nothing has to be buffered or known in advance. ZIP64 kicks in automatically
+past the 4 GB boundaries. Because the manifest gives every file size up front,
+the exact archive length is computed before the first byte, so the browser gets
+a real `Content-Length` and a true progress bar. Individual files can still be
+downloaded on their own.
+
 Backpressure runs end to end: the receiver's disk writer gates the data channel,
 which gates the sender's reads. Nothing accumulates unboundedly.
 
@@ -50,10 +59,10 @@ which gates the sender's reads. Nothing accumulates unboundedly.
 ```
 src/shared/protocol.ts    Wire types shared by server and browser
 src/server/              Signalling server: WS relay, channel registry, static files
-src/client/              Browser: upload page, download page, transfer, service worker
+src/client/              Browser: upload page, download page, transfer, zip, service worker
 public/                  HTML, CSS, built bundles
 deploy/                  LXC creation, bootstrap, systemd unit, Cloudflare Tunnel
-test/                    Signalling tests + real two-browser transfer tests
+test/                    Signalling, ZIP format, and real two-browser transfer tests
 ```
 
 ## Development
@@ -66,8 +75,10 @@ npm test                  # signalling + real browser transfers (needs chromium)
 npm run typecheck
 ```
 
-`npm test` boots the server, then drives real Chromium pages through actual
-WebRTC transfers and verifies the received bytes by SHA-256.
+`npm test` boots the server on an ephemeral port, then drives real Chromium
+pages through actual WebRTC transfers and verifies the received bytes by
+SHA-256. Archives are checked against both `unzip -t` and Python's `zipfile`,
+which is an implementation with nothing in common with ours.
 
 > Browser tests need chromium (`apt install chromium`, or set `CHROME_PATH`).
 > They force `LANG=C.UTF-8`: under `LANG=C`, Chromium saves any non-ASCII

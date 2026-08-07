@@ -2,6 +2,7 @@ import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
 import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling } from './common.js';
 import { createSink, initSaver, type SaveMode } from './save.js';
 import { FileReceiver, PeerLink, type ActiveDownload } from './transfer.js';
+import { planZip, ZipWriter } from './zip.js';
 
 const signaling = new Signaling();
 let link: PeerLink | null = null;
@@ -221,12 +222,51 @@ function setButtonsDisabled(disabled: boolean): void {
   downloadAll.disabled = disabled;
 }
 
-downloadAll.addEventListener('click', async () => {
-  // Sequential: the data channel carries one file at a time, and browsers throttle
-  // a burst of simultaneous downloads anyway.
-  for (const file of files) {
-    await downloadOne(file);
+downloadAll.addEventListener('click', () => void downloadAllAsZip());
+
+/**
+ * Pulls every file in order and muxes them into one ZIP as they arrive. The
+ * archive is written straight through to disk - at no point does a whole file,
+ * let alone the whole archive, sit in memory.
+ */
+async function downloadAllAsZip(): Promise<void> {
+  if (!receiver || busy) return;
+  busy = true;
+  setButtonsDisabled(true);
+
+  const archiveName = `aurora-files-${slug}.zip`;
+  const plan = planZip(files.map((f) => ({ name: f.name, size: f.size })));
+
+  for (const row of progressRows.values()) {
+    row.bar.style.width = '0%';
+    row.status.textContent = 'Queued';
   }
-});
+  setStatus(`Building ${archiveName} (${formatBytes(plan.totalSize)})…`);
+
+  try {
+    const sink = await createSink(saveMode, archiveName, plan.totalSize, 'application/zip');
+    const zip = new ZipWriter(plan, sink);
+
+    for (const file of files) {
+      const row = progressRows.get(file.id);
+      if (row) row.status.textContent = 'Receiving…';
+      await receiver.request(file.id, zip.nextEntry());
+      if (row) {
+        row.bar.style.width = '100%';
+        row.status.textContent = 'Added to archive';
+      }
+    }
+
+    await zip.finish();
+    setStatus(`Saved ${archiveName} — ${files.length} files, ${formatBytes(plan.totalSize)}.`, 'good');
+  } catch (err) {
+    const message = (err as Error).message;
+    setStatus(`The archive failed: ${message}`, 'warn');
+    showError(`Could not build ${archiveName}: ${message}`);
+  } finally {
+    busy = false;
+    setButtonsDisabled(false);
+  }
+}
 
 void main();

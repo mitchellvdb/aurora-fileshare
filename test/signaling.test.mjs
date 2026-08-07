@@ -1,7 +1,8 @@
 // Exercises the signalling server the way two browsers would, without a browser.
 import WebSocket from 'ws';
 
-const URL = 'ws://127.0.0.1:8080/ws';
+const URL = (process.env.TEST_ORIGIN ?? 'http://127.0.0.1:8080')
+  .replace(/^http/, 'ws') + '/ws';
 let failures = 0;
 
 function check(name, cond, detail = '') {

@@ -8,7 +8,7 @@ import { writeFileSync, readFileSync, existsSync, readdirSync, rmSync, mkdirSync
 const TMP = new URL('./.tmp/', import.meta.url).pathname;
 _mk(TMP, { recursive: true });
 const DL = `${TMP}/dl`;
-const ORIGIN = 'http://127.0.0.1:8080';
+const ORIGIN = process.env.TEST_ORIGIN ?? 'http://127.0.0.1:8080';
 let failures = 0;
 
 function check(name, cond, detail = '') {

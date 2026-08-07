@@ -8,16 +8,36 @@
  * the application.
  */
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.on('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const PORT = process.env.TEST_PORT ?? '8080';
+// Pick a free port rather than a fixed one: if something else already holds
+// the port, the spawned server fails to bind and the suite silently tests
+// whatever is listening instead - which is worse than failing outright.
+const PORT = process.env.TEST_PORT ?? String(await freePort());
 const CHROME = process.env.CHROME_PATH ?? '/usr/bin/chromium';
 
-const env = { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', CHROME_PATH: CHROME };
+const ORIGIN = `http://127.0.0.1:${PORT}`;
+const env = {
+  ...process.env,
+  LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8',
+  CHROME_PATH: CHROME, TEST_ORIGIN: ORIGIN,
+};
 
 if (!existsSync(join(ROOT, 'dist/server/index.js'))) {
   console.error('Build first: npm run build');
@@ -34,7 +54,7 @@ server.stderr.on('data', (d) => serverLog.push(d.toString()));
 async function waitForServer() {
   for (let i = 0; i < 50; i++) {
     try {
-      const res = await fetch(`http://127.0.0.1:${PORT}/healthz`);
+      const res = await fetch(`${ORIGIN}/healthz`);
       if (res.ok) return true;
     } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 200));
@@ -49,6 +69,7 @@ const run = (file) => new Promise((resolve) => {
 
 let failed = 0;
 try {
+  console.log(`server: ${ORIGIN}`);
   if (!await waitForServer()) {
     console.error('Server did not come up:\n' + serverLog.join(''));
     process.exit(1);

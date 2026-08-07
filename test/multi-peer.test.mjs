@@ -7,10 +7,11 @@ import puppeteer from 'puppeteer-core';
 import { mkdirSync as _mk } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, rmSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const TMP = new URL('./.tmp/', import.meta.url).pathname;
 _mk(TMP, { recursive: true });
-const ORIGIN = 'http://127.0.0.1:8080';
+const ORIGIN = process.env.TEST_ORIGIN ?? 'http://127.0.0.1:8080';
 const PASSWORD = 'correct horse battery staple';
 let failures = 0;
 
@@ -161,35 +162,63 @@ try {
     await new Promise((res) => setTimeout(res, 2000));
     const snap = [];
     for (const r of [r1, r2]) {
-      snap.push(await r.page.$$eval('#file-list .file-status', (els) => els.map((e) => e.textContent)));
+      snap.push(await r.page.$eval('#status', (el) => el.textContent));
     }
-    settled = snap.every((s) => s.length === 3 && s.every((x) => x === 'Complete'));
+    settled = snap.every((s) => /^Saved aurora-files-/.test(s));
     if (!settled && t % 5 === 4) {
-      const snd = await sender.$$eval('#recipients .recipient-status', (els) => els.map((e) => e.textContent));
-      console.log(`      t+${t * 2}s  r1=[${snap[0].join(' | ')}]  r2=[${snap[1].join(' | ')}]  sender=[${snd.join(' // ')}]`);
+      console.log(`      t+${t * 2}s  r1="${snap[0]}"  r2="${snap[1]}"`);
     }
   }
-  check('both recipients completed all three files', settled,
-    settled ? '' : 'timed out waiting for Complete on both');
+  check('both recipients built the archive', settled,
+    settled ? '' : 'timed out waiting for both archives');
   console.log(`      (${((Date.now() - started) / 1000).toFixed(1)}s)`);
 
-  // --- Integrity ------------------------------------------------------------
+  // --- Archive integrity ----------------------------------------------------
   for (const r of [r1, r2]) {
-    let ok = true, detail = '';
-    for (const spec of specs) {
-      let found = null;
-      for (let i = 0; i < 120; i++) {
-        const names = readdirSync(r.dir).filter((f) => !f.endsWith('.crdownload'));
-        if (names.includes(spec.name)) {
-          const buf = readFileSync(`${r.dir}/${spec.name}`);
-          if (buf.length === spec.size) { found = buf; break; }
-        }
-        await new Promise((res) => setTimeout(res, 250));
+    const tag = r.dir.split('/').pop();
+
+    let archive = null;
+    for (let i = 0; i < 120; i++) {
+      const names = readdirSync(r.dir).filter((f) => f.endsWith('.zip'));
+      if (names.length > 0) {
+        // Wait for the browser to finish flushing before reading.
+        const path = `${r.dir}/${names[0]}`;
+        const a = readFileSync(path).length;
+        await new Promise((res) => setTimeout(res, 300));
+        if (readFileSync(path).length === a && a > 0) { archive = path; break; }
       }
-      if (!found) { ok = false; detail = `${spec.name} missing (have: ${readdirSync(r.dir).join(', ')})`; break; }
-      if (sha256(found) !== spec.hash) { ok = false; detail = `${spec.name} checksum mismatch`; break; }
+      await new Promise((res) => setTimeout(res, 250));
     }
-    check(`all three files intact for ${r.dir.split('/').pop()}`, ok, detail);
+    check(`${tag}: a .zip landed on disk`, archive !== null, readdirSync(r.dir).join(', '));
+    if (!archive) continue;
+
+    let structOk = true, structDetail = '';
+    try {
+      execFileSync('unzip', ['-t', archive], { stdio: 'pipe' });
+    } catch (e) {
+      structOk = false;
+      structDetail = ((e.stdout?.toString() ?? '') + (e.stderr?.toString() ?? '')).trim().split('\n').slice(-1)[0];
+    }
+    check(`${tag}: unzip -t accepts the archive`, structOk, structDetail);
+
+    let info = null;
+    try {
+      info = JSON.parse(execFileSync('python3', ['-c', `
+import zipfile, hashlib, json, sys
+z = zipfile.ZipFile(sys.argv[1])
+print(json.dumps({"bad": z.testzip(), "names": z.namelist(),
+  "hashes": {n: hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()}}))
+`, archive], { stdio: 'pipe' }).toString());
+    } catch (e) {
+      check(`${tag}: python zipfile opens the archive`, false, (e.stderr?.toString() ?? '').trim());
+      continue;
+    }
+    check(`${tag}: python zipfile opens the archive`, info.bad === null, String(info.bad));
+    check(`${tag}: archive holds all three files`,
+      specs.every((sp) => info.names.includes(sp.name)), info.names.join(', '));
+
+    const bad = specs.filter((sp) => info.hashes[sp.name] !== sp.hash).map((sp) => sp.name);
+    check(`${tag}: every file in the archive matches by sha256`, bad.length === 0, bad.join(', '));
   }
 
   check('no uncaught errors anywhere',
