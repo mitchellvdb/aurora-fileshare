@@ -57,6 +57,17 @@ for (const [label, path, canonical] of [
   check('share page: no canonical url', !html.includes('rel="canonical"'));
 }
 
+// --- Search engine ownership verification ------------------------------------
+{
+  const res = await fetch(ORIGIN + '/BingSiteAuth.xml');
+  check('bing verification file is served from the root', res.ok, String(res.status));
+  const ct = res.headers.get('content-type') ?? '';
+  check('bing verification file is served as xml', ct.includes('xml'), ct);
+  const body = await res.text();
+  check('bing verification file carries a token',
+    /<user>[0-9A-Fa-f]{16,}<\/user>/.test(body), body.replace(/\s+/g, ' ').trim().slice(0, 60));
+}
+
 // --- robots.txt --------------------------------------------------------------
 {
   const robots = await get('/robots.txt');
