@@ -41,15 +41,33 @@ for (const [label, path] of [['upload', '/'], ['download', '/d/swift-otter-100']
   }
 }
 
-// Documents and the worker must never be pinned, or a deploy cannot take effect.
+// Documents must never be pinned, or a deploy cannot take effect.
 for (const [label, path] of [
   ['index.html', '/'],
   ['download.html', '/d/swift-otter-100'],
-  ['sw.js', '/sw.js'],
 ]) {
   const res = await fetch(ORIGIN + path);
   const cc = res.headers.get('cache-control') ?? '';
   check(`${label} revalidates rather than caching`, cc.includes('no-cache'), cc);
+}
+
+// The worker is the same story, but only the origin's header is ours to set -
+// a CDN in front may rewrite it, which is exactly why the registration also
+// tells the browser to bypass its HTTP cache when checking for updates.
+{
+  const res = await fetch(ORIGIN + '/sw.js');
+  const cc = res.headers.get('cache-control') ?? '';
+  const viaCdn = res.headers.has('cf-cache-status');
+  if (viaCdn) {
+    console.log(`      (behind a CDN; it rewrote sw.js caching to "${cc}")`);
+  } else {
+    check('sw.js revalidates at the origin', cc.includes('no-cache'), cc);
+  }
+
+  const bundle = await (await fetch(ORIGIN + JSON.parse(
+    readFileSync(join(ROOT, 'public/build/manifest.json'), 'utf8'))['download.js'])).text();
+  check('worker registration bypasses the HTTP cache for updates',
+    /updateViaCache\s*:\s*["']none["']/.test(bundle));
 }
 
 // The manifest must agree with what the server actually serves.

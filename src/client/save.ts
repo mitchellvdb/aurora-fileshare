@@ -36,7 +36,13 @@ export async function initSaver(): Promise<SaveMode> {
   if (!supportsTransferableStreams()) return 'blob';
 
   try {
-    swRegistration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    swRegistration = await navigator.serviceWorker.register('/sw.js', {
+      scope: '/',
+      // Bypass the HTTP cache when checking for a new worker. The origin sends
+      // no-cache, but a CDN in front can pin sw.js to its own TTL (Cloudflare
+      // defaults to four hours), which would strand users on an old worker.
+      updateViaCache: 'none',
+    });
     await navigator.serviceWorker.ready;
     // A freshly installed worker does not control this page until it claims it.
     if (!navigator.serviceWorker.controller) {
