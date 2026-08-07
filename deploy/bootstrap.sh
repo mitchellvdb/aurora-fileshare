@@ -64,7 +64,10 @@ sed "s#^ExecStart=.*#ExecStart=${NODE_BIN} dist/server/index.js#" \
 chmod 0644 /etc/systemd/system/aurora-fileshare.service
 echo "    ExecStart=${NODE_BIN} dist/server/index.js"
 systemctl daemon-reload
-systemctl enable --now aurora-fileshare
+systemctl enable aurora-fileshare
+# restart rather than 'enable --now', so re-running this to deploy an
+# update actually picks up the new build.
+systemctl restart aurora-fileshare
 
 sleep 2
 if systemctl is-active --quiet aurora-fileshare; then

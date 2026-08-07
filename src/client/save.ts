@@ -1,3 +1,4 @@
+import { uid } from './common.js';
 import type { ReceiveSink } from './transfer.js';
 
 /**
@@ -83,7 +84,7 @@ async function createStreamSink(name: string, size: number, mime: string): Promi
   const controller = navigator.serviceWorker.controller;
   if (!controller) throw new Error('No service worker controller.');
 
-  const id = crypto.randomUUID();
+  const id = uid();
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
 

@@ -1,3 +1,4 @@
+import { uid } from './common.js';
 import {
   BUFFER_HIGH_WATER,
   BUFFER_LOW_WATER,
@@ -203,7 +204,7 @@ export class FileReceiver {
 
   /** Requests a file and resolves once the last byte has been written. */
   request(fileId: string, sink: ReceiveSink): Promise<void> {
-    const reqId = crypto.randomUUID();
+    const reqId = uid();
     return new Promise<void>((resolvePromise, rejectPromise) => {
       this.pendingSinks.set(reqId, { sink, resolve: resolvePromise, reject: rejectPromise });
       this.dc.send(JSON.stringify({ t: 'req', reqId, fileId } satisfies TransferMessage));

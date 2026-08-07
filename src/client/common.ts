@@ -128,8 +128,33 @@ export class Signaling {
 
 // --- Misc -------------------------------------------------------------------
 
+/**
+ * A v4 UUID.
+ *
+ * crypto.randomUUID() only exists in secure contexts, so it is absent over
+ * plain HTTP on anything other than localhost - which is exactly how this app
+ * gets reached on a LAN, before any TLS is in front of it. crypto.getRandomValues
+ * has no such restriction, so fall back to building the UUID by hand.
+ *
+ * The format matters beyond aesthetics: the service worker matches download
+ * ids against a 36-character UUID pattern.
+ */
 export function uid(): string {
-  return crypto.randomUUID();
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = ((bytes[6] as number) & 0x0f) | 0x40;   // version 4
+  bytes[8] = ((bytes[8] as number) & 0x3f) | 0x80;   // variant 1
+  const hex: string[] = [];
+  for (let i = 0; i < 16; i++) hex.push((bytes[i] as number).toString(16).padStart(2, '0'));
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {
