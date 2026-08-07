@@ -9,6 +9,7 @@ tar -czf "$OUT" \
   --exclude='./public/build' \
   --exclude='./public/sw.js' \
   --exclude='./.git' \
+  --exclude='./test/.tmp' \
   --exclude='./.env' \
   -C "$(dirname "$0")/.." .
 
