@@ -13,4 +13,4 @@ tar -czf "$OUT" \
   --exclude='./.env' \
   -C "$(dirname "$0")/.." .
 
-echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
+echo "Wrote $OUT ($(stat -c %s "$OUT") bytes)"

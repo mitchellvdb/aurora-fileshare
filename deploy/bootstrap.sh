@@ -56,7 +56,13 @@ chown -R root:"$APP_USER" "$APP_DIR"
 chmod -R g+rX "$APP_DIR"
 
 echo "==> Installing systemd unit"
-install -m 0644 "$APP_DIR/deploy/aurora-fileshare.service" /etc/systemd/system/
+# Resolve node's real path rather than trusting /usr/bin/node: NodeSource puts
+# it there, but nvm and other installs do not.
+NODE_BIN="$(command -v node)"
+sed "s#^ExecStart=.*#ExecStart=${NODE_BIN} dist/server/index.js#" \
+  "$APP_DIR/deploy/aurora-fileshare.service" > /etc/systemd/system/aurora-fileshare.service
+chmod 0644 /etc/systemd/system/aurora-fileshare.service
+echo "    ExecStart=${NODE_BIN} dist/server/index.js"
 systemctl daemon-reload
 systemctl enable --now aurora-fileshare
 
