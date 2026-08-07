@@ -72,7 +72,8 @@ export async function serveFile(
 
   // Hashed bundle assets are immutable; everything else must revalidate so a
   // deploy takes effect immediately (critically, the service worker).
-  const immutable = relPath.startsWith('/build/') && /\.[0-9a-f]{8}\./.test(relPath);
+  // esbuild emits uppercase base32 hashes, the stylesheet lowercase hex.
+  const immutable = relPath.startsWith('/build/') && /\.[A-Za-z0-9]{8}\./.test(relPath);
   res.setHeader('Cache-Control', immutable
     ? 'public, max-age=31536000, immutable'
     : 'no-cache');

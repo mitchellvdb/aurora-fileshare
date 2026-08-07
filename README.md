@@ -105,6 +105,23 @@ TUNNEL_TOKEN=eyJ... bash /opt/aurora-fileshare/deploy/setup-tunnel.sh
 
 Configuration lives in `.env` (see `.env.example`).
 
+## Cache busting
+
+Bundles and the stylesheet are served under content-hashed names
+(`upload.SGNQRGUH.js`), referenced from HTML rewritten at startup from
+`public/build/manifest.json`.
+
+This is not premature polish. The origin sends `no-cache` for unhashed assets,
+but a CDN in front can override that with its own browser TTL - Cloudflare's
+default is four hours - which left browsers running the previous bundle against
+freshly deployed HTML. Hashed names remove the question: new content means a new
+URL, so there is no stale copy to serve, and the assets can then be cached for a
+year.
+
+The documents and the service worker stay on `no-cache` deliberately: they are
+the entry points that must pick up a deploy immediately, and `sw.js` additionally
+needs a stable path to keep its scope.
+
 ## The donate button
 
 Set `DONATE_URL` to any donation page and a "buy me a coffee" button appears in

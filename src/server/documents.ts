@@ -57,14 +57,39 @@ function metaTags(): string {
     + `<meta name="aurora-donate-label" content="${escapeAttribute(label)}">`;
 }
 
+/**
+ * Rewrites asset references to their content-hashed build output, so a deploy
+ * can never leave a browser running last version's JavaScript against this
+ * version's HTML.
+ */
+async function assetManifest(publicRoot: string): Promise<Record<string, string>> {
+  try {
+    return JSON.parse(await readFile(join(publicRoot, 'build/manifest.json'), 'utf8'));
+  } catch {
+    console.warn('[aurora-fileshare] no build manifest; serving unhashed asset names');
+    return {};
+  }
+}
+
+function applyManifest(html: string, manifest: Record<string, string>): string {
+  let out = html;
+  for (const [logical, hashed] of Object.entries(manifest)) {
+    const from = logical === 'styles.css' ? '/styles.css' : `/build/${logical}`;
+    out = out.split(from).join(hashed);
+  }
+  return out;
+}
+
 export async function loadDocuments(publicRoot: string): Promise<void> {
   const injected = metaTags();
+  const manifest = await assetManifest(publicRoot);
 
   for (const name of ['index.html', 'download.html']) {
     const source = await readFile(join(publicRoot, name), 'utf8');
+    const withAssets = applyManifest(source, manifest);
     const html = injected
-      ? source.replace('</head>', `${injected}</head>`)
-      : source;
+      ? withAssets.replace('</head>', `${injected}</head>`)
+      : withAssets;
     const buffer = Buffer.from(html, 'utf8');
     documents.set(name, {
       html: buffer,
