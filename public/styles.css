@@ -422,3 +422,43 @@ footer a { color: var(--accent); }
   .donate { transition: none; }
   .donate:hover { transform: none; }
 }
+
+/* --- Navigation and long-form content -------------------------------------- */
+
+.nav {
+  margin-top: 12px;
+  font-size: .92rem;
+  color: var(--text-muted);
+}
+.nav a { color: var(--accent); }
+.nav .here { color: var(--text); font-weight: 550; }
+
+.prose h2 {
+  font-size: 1.12rem;
+  margin: 26px 0 10px;
+}
+.prose h2:first-child { margin-top: 0; }
+
+.prose h3 {
+  font-size: .99rem;
+  margin: 24px 0 6px;
+  color: var(--text);
+}
+
+.prose p { margin: 0 0 12px; color: var(--text-muted); }
+.prose p strong, .prose li strong { color: var(--text); }
+.prose em { color: var(--text); font-style: italic; }
+
+.prose code {
+  font-family: var(--mono);
+  font-size: .88em;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.prose ol.steps { margin: 0 0 14px; padding-left: 20px; }
+.prose ol.steps li { margin-bottom: 8px; color: var(--text-muted); }
+
+.prose a { color: var(--accent); }

@@ -21,7 +21,7 @@ function check(name, cond, detail = '') {
 
 const HASHED = /\/build\/[a-z]+\.[A-Za-z0-9]{8}\.(js|css)$/;
 
-for (const [label, path] of [['upload', '/'], ['download', '/d/swift-otter-100']]) {
+for (const [label, path] of [['upload', '/'], ['download', '/d/swift-otter-100'], ['faq', '/faq']]) {
   const html = await (await fetch(ORIGIN + path)).text();
   const refs = [...html.matchAll(/(?:href|src)="(\/[^"]+\.(?:js|css))"/g)].map((m) => m[1]);
 
@@ -30,7 +30,7 @@ for (const [label, path] of [['upload', '/'], ['download', '/d/swift-otter-100']
     refs.every((r) => HASHED.test(r)), refs.join(', '));
   check(`${label}: no unhashed bundle slipped through`,
     !html.includes('/build/upload.js') && !html.includes('/build/download.js')
-    && !html.includes('"/styles.css"'));
+    && !html.includes('/build/faq.js') && !html.includes('"/styles.css"'));
 
   for (const ref of refs) {
     const res = await fetch(ORIGIN + ref);
@@ -45,6 +45,7 @@ for (const [label, path] of [['upload', '/'], ['download', '/d/swift-otter-100']
 for (const [label, path] of [
   ['index.html', '/'],
   ['download.html', '/d/swift-otter-100'],
+  ['faq.html', '/faq'],
 ]) {
   const res = await fetch(ORIGIN + path);
   const cc = res.headers.get('cache-control') ?? '';

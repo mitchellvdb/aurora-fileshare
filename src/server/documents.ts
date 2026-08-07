@@ -3,30 +3,35 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { config } from './config.js';
+import { baseCsp } from './static.js';
+import {
+  appJsonLd, extractFaq, faqJsonLd, metaTagsFor, PAGES, robotsTxt, sitemapXml,
+} from './seo.js';
 
 /**
- * The two HTML documents are rendered once at startup with the runtime config
- * baked in as meta tags, then served from memory.
+ * HTML documents are rendered once at startup - runtime config, SEO metadata,
+ * structured data and hashed asset URLs all baked in - then served from memory.
  *
- * A meta tag rather than an inline script keeps the strict CSP intact - there
- * is no 'unsafe-inline' to grant - and baking it in beats a second round trip
- * for a config fetch, which would also make the button pop in after paint.
+ * Doing it here rather than in the client avoids an inline script, which the
+ * strict CSP would otherwise force us to loosen, and means the page is complete
+ * on first paint instead of assembling itself afterwards.
  */
 
 interface Document {
   html: Buffer;
   etag: string;
+  /** Per-document policy, carrying hashes for any inline JSON-LD. */
+  csp: string;
 }
 
 const documents = new Map<string, Document>();
+let generatedSitemap = '';
+let generatedRobots = '';
 
 function escapeAttribute(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /**
@@ -49,7 +54,7 @@ function safeUrl(raw: string): string | null {
   return parsed.toString();
 }
 
-function metaTags(): string {
+function donateMeta(): string {
   const donateUrl = safeUrl(config.donateUrl);
   if (!donateUrl) return '';
   const label = config.donateLabel || 'Buy me a coffee';
@@ -80,26 +85,55 @@ function applyManifest(html: string, manifest: Record<string, string>): string {
   return out;
 }
 
-export async function loadDocuments(publicRoot: string): Promise<void> {
-  const injected = metaTags();
-  const manifest = await assetManifest(publicRoot);
+function scriptHash(content: string): string {
+  return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
+}
 
-  for (const name of ['index.html', 'download.html']) {
+export async function loadDocuments(publicRoot: string): Promise<void> {
+  const manifest = await assetManifest(publicRoot);
+  const donate = donateMeta();
+  const publicUrl = config.publicUrl;
+
+  // The FAQ's structured data is derived from the page's own markup, so the two
+  // cannot disagree about what the answers say.
+  const faqSource = await readFile(join(publicRoot, 'faq.html'), 'utf8');
+  const faqEntries = extractFaq(faqSource);
+
+  for (const [name, page] of Object.entries(PAGES)) {
     const source = await readFile(join(publicRoot, name), 'utf8');
-    const withAssets = applyManifest(source, manifest);
-    const html = injected
-      ? withAssets.replace('</head>', `${injected}</head>`)
-      : withAssets;
+    const head: string[] = [metaTagsFor(page, publicUrl), donate];
+    const hashes: string[] = [];
+
+    const structured = name === 'faq.html'
+      ? (faqEntries.length > 0 ? faqJsonLd(faqEntries) : '')
+      : name === 'index.html' ? appJsonLd(publicUrl) : '';
+
+    if (structured) {
+      head.push(`<script type="application/ld+json">${structured}</script>`);
+      hashes.push(scriptHash(structured));
+    }
+
+    const html = applyManifest(source, manifest)
+      .replace('</head>', `${head.filter(Boolean).join('')}</head>`);
     const buffer = Buffer.from(html, 'utf8');
+
     documents.set(name, {
       html: buffer,
       etag: `W/"${createHash('sha1').update(buffer).digest('hex').slice(0, 16)}"`,
+      csp: baseCsp(hashes),
     });
   }
 
-  console.log(injected
+  generatedSitemap = publicUrl ? sitemapXml(publicUrl) : '';
+  generatedRobots = robotsTxt(publicUrl);
+
+  console.log(`[aurora-fileshare] documents rendered (${faqEntries.length} FAQ entries)`);
+  console.log(donate
     ? `[aurora-fileshare] donate button enabled -> ${safeUrl(config.donateUrl)}`
     : '[aurora-fileshare] donate button disabled (DONATE_URL not set)');
+  if (!publicUrl) {
+    console.warn('[aurora-fileshare] PUBLIC_URL unset: no canonical URLs or sitemap');
+  }
 }
 
 export function serveDocument(
@@ -109,6 +143,14 @@ export function serveDocument(
 ): boolean {
   const doc = documents.get(name);
   if (!doc) return false;
+
+  res.setHeader('Content-Security-Policy', doc.csp);
+
+  // A share page must stay out of search results even if a crawler reaches it
+  // without having read robots.txt - the slug is the only thing gating access.
+  if (PAGES[name]?.noindex) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
 
   if (req.headers['if-none-match'] === doc.etag) {
     res.writeHead(304).end();
@@ -126,4 +168,22 @@ export function serveDocument(
   }
   res.writeHead(200).end(doc.html);
   return true;
+}
+
+export function serveSitemap(res: ServerResponse): boolean {
+  if (!generatedSitemap) return false;
+  res.writeHead(200, {
+    'Content-Type': 'application/xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600',
+  });
+  res.end(generatedSitemap);
+  return true;
+}
+
+export function serveRobots(res: ServerResponse): void {
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600',
+  });
+  res.end(generatedRobots);
 }

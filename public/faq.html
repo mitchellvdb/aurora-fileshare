@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works & FAQ — Aurora FileShare</title>
+<meta name="description" content="How Aurora FileShare sends files peer to peer without uploading them: size limits, privacy, passwords, expiry, browser support and troubleshooting.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Aurora FileShare</h1>
+    </a>
+    <p class="tagline">How it works, and answers to the usual questions.</p>
+    <nav class="nav"><a href="/">Send a file</a> · <span class="here">Documentation</span></nav>
+  </header>
+
+  <article class="card prose">
+    <h2>What it is</h2>
+    <p>
+      Aurora FileShare sends files straight from one browser to another. There is
+      no upload step and no copy sitting on a server afterwards — the two browsers
+      form a direct, encrypted connection and the bytes flow across it.
+    </p>
+    <p>
+      That single design choice is where most of the behaviour below comes from:
+      there is no size limit because there is nothing to store, and the sender has
+      to keep their tab open because their device <em>is</em> the source.
+    </p>
+
+    <h2>How a transfer works</h2>
+    <ol class="steps">
+      <li><strong>You pick files.</strong> They stay on your device. Nothing is read or copied yet.</li>
+      <li><strong>You get a link.</strong> Our server records only that the share exists, plus the file names and sizes needed to show the recipient what they are about to receive.</li>
+      <li><strong>They open the link.</strong> The server introduces the two browsers to each other — this is called signalling — and then steps out of the way.</li>
+      <li><strong>The browsers connect directly</strong> over WebRTC and the file streams across, encrypted end to end by DTLS.</li>
+    </ol>
+    <p class="muted">
+      The server never receives, stores, or relays file contents. It cannot: the
+      bytes travel on a connection it is not part of.
+    </p>
+  </article>
+
+  <article class="card prose" id="faq">
+    <h2>Frequently asked questions</h2>
+
+    <h3>Is there a file size limit?</h3>
+    <p>
+      No. Because nothing is uploaded, there is no storage quota to hit. Transfers
+      are streamed in small chunks and written straight to disk, so a 50 GB file
+      uses no more memory than a 5 MB one. The practical limits are your connection
+      speed and the recipient's free disk space.
+    </p>
+
+    <h3>Where are my files stored?</h3>
+    <p>
+      Nowhere. There is no bucket, no disk, no temporary copy. When the transfer
+      finishes, the only copies that exist are the sender's original and the
+      recipient's download.
+    </p>
+
+    <h3>What does the server actually see?</h3>
+    <p>
+      Being precise, because "nothing" would be an overstatement: to introduce the
+      two browsers, the server briefly holds the share's file names, sizes and MIME
+      types in memory, along with the connection details the browsers need to find
+      each other. It also sees the IP addresses connecting to it, as any web server
+      does, and uses them to rate limit share creation. None of this is written to
+      disk, and all of it disappears when the share ends.
+    </p>
+    <p>
+      What it never sees is file <em>contents</em>.
+    </p>
+
+    <h3>Is the transfer encrypted?</h3>
+    <p>
+      Yes, and not optionally. WebRTC data channels are encrypted with DTLS as part
+      of the protocol — there is no mode in which the data crosses the network in
+      the clear.
+    </p>
+
+    <h3>Do I have to keep the tab open?</h3>
+    <p>
+      Yes. Your browser is serving the file, so closing the tab ends the share the
+      same way unplugging a server would. Recipients who are mid-download will see
+      the connection drop.
+    </p>
+
+    <h3>How long does a link last?</h3>
+    <p>
+      Until you close the tab, or four hours of inactivity, whichever comes first.
+      Links are not meant to be permanent — for anything long-lived you want actual
+      hosting, not a peer-to-peer transfer.
+    </p>
+
+    <h3>Can several people download the same share?</h3>
+    <p>
+      Yes. Each recipient gets their own direct connection to you, and you can watch
+      their progress individually. Bear in mind you are uploading to each of them
+      separately, so ten recipients means ten times the upload.
+    </p>
+
+    <h3>Can I send more than one file?</h3>
+    <p>
+      Yes, up to 64 at a time. The recipient can take them individually, or download
+      the whole set as a single <code>.zip</code>. The archive is assembled as the
+      bytes arrive rather than built up first, so it starts saving immediately and
+      never has to fit in memory.
+    </p>
+
+    <h3>Can I password-protect a share?</h3>
+    <p>
+      Yes. Set a password when you create the link and recipients must enter it
+      before they can even see the file list. Send the password separately from the
+      link — a password in the same message protects nothing.
+    </p>
+
+    <h3>The recipient cannot connect. What went wrong?</h3>
+    <p>
+      Almost always restrictive networks on both ends. A direct connection needs at
+      least one side to be reachable, and some corporate and mobile networks prevent
+      that in a way that cannot be worked around from the browser. If both sides are
+      on such a network, no direct route exists and the transfer cannot start.
+    </p>
+    <p>
+      Switching either end to a different network — a home connection, or a phone's
+      hotspot — is usually enough.
+    </p>
+
+    <h3>Which browsers work?</h3>
+    <p>
+      Any current version of Chrome, Edge, Firefox, Safari or their mobile
+      equivalents. On browsers that support it, downloads stream directly to disk;
+      elsewhere the file is assembled in memory first, which the page will tell you,
+      and which makes very large files unreliable.
+    </p>
+
+    <h3>Is it free?</h3>
+    <p>
+      Yes, with no account and no limits. It costs very little to run precisely
+      because the files never touch the server. If it saved you a trip to a
+      file-hosting site, there is a tip button in the footer.
+    </p>
+
+    <h3>Can I run it myself?</h3>
+    <p>
+      Yes — it is a small self-contained Node application and self-hosting is a
+      reasonable thing to want for something handling your files. Ask and we will
+      point you at it.
+    </p>
+  </article>
+
+  <footer>
+    <p><a href="/">Send a file</a> · Aurora Hosting</p>
+    <p id="donate-slot" class="donate-slot" hidden></p>
+  </footer>
+
+</div>
+<script type="module" src="/build/faq.js"></script>
+</body>
+</html>

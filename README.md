@@ -105,6 +105,28 @@ TUNNEL_TOKEN=eyJ... bash /opt/aurora-fileshare/deploy/setup-tunnel.sh
 
 Configuration lives in `.env` (see `.env.example`).
 
+## Documentation and search visibility
+
+`/faq` carries the user-facing documentation. It exists for readers first, but
+it is also the only page with enough text for a search engine to work with - the
+transfer UI itself is a drop zone and a button.
+
+Search surface, all rendered server-side at startup:
+
+- canonical URLs, Open Graph and Twitter card metadata on indexable pages
+- `sitemap.xml` and `robots.txt` generated from `PUBLIC_URL`
+- schema.org `WebApplication` on the home page, `FAQPage` on `/faq`
+- inline JSON-LD admitted by CSP via a sha256 hash, not `unsafe-inline`
+
+Share pages are excluded twice over: `noindex` in markup *and* an `X-Robots-Tag`
+header, because a crawler that reaches a share URL without having read
+`robots.txt` would never see the meta tag. The slug is the only thing gating a
+share, so it must not end up in an index.
+
+The FAQ's structured data is extracted from the page's own markup at startup, so
+the marked-up answers cannot drift from the visible ones - which is precisely
+what gets structured data penalised.
+
 ## Cache busting
 
 Bundles and the stylesheet are served under content-hashed names

@@ -20,21 +20,28 @@ const MIME: Record<string, string> = {
  * people's files, so no inline script, no third-party origins, and connections
  * limited to our own host (plus STUN/TURN, which is not subject to connect-src).
  */
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self' data: blob:",
-  "connect-src 'self' ws: wss: blob:",
-  "worker-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "object-src 'none'",
-].join('; ');
+/**
+ * `extraScriptSources` carries sha256 hashes for inline JSON-LD blocks, so
+ * structured data can be embedded without ever granting 'unsafe-inline'.
+ */
+export function baseCsp(extraScriptSources: string[] = []): string {
+  const scriptSrc = ["'self'", ...extraScriptSources].join(' ');
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    "style-src 'self'",
+    "img-src 'self' data: blob:",
+    "connect-src 'self' ws: wss: blob:",
+    "worker-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "object-src 'none'",
+  ].join('; ');
+}
 
 export function securityHeaders(res: ServerResponse): void {
-  res.setHeader('Content-Security-Policy', CSP);
+  res.setHeader('Content-Security-Policy', baseCsp());
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'DENY');

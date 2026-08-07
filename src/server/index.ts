@@ -10,7 +10,9 @@ import { ChannelRegistry, newPeer, send, type Peer } from './channels.js';
 import { RateLimiter } from './rate-limit.js';
 import { isValidSlug } from './slug.js';
 import { securityHeaders, serveFile } from './static.js';
-import { loadDocuments, serveDocument } from './documents.js';
+import {
+  loadDocuments, serveDocument, serveRobots, serveSitemap,
+} from './documents.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = resolve(HERE, '../../public');
@@ -47,8 +49,20 @@ const server = createServer(async (req, res) => {
   if (path === '/' || path === '/index.html') {
     if (serveDocument('index.html', req, res)) return;
   }
+  if (path === '/faq' || path === '/faq.html' || path === '/docs') {
+    if (serveDocument('faq.html', req, res)) return;
+  }
   if (/^\/d\/[^/]+$/.test(path)) {
     if (serveDocument('download.html', req, res)) return;
+  }
+
+  // Generated rather than static: both depend on PUBLIC_URL.
+  if (path === '/robots.txt') {
+    serveRobots(res);
+    return;
+  }
+  if (path === '/sitemap.xml') {
+    if (serveSitemap(res)) return;
   }
 
   if (await serveFile(PUBLIC_ROOT, path, req, res)) return;

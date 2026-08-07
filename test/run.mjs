@@ -37,6 +37,10 @@ const env = {
   ...process.env,
   LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8',
   CHROME_PATH: CHROME, TEST_ORIGIN: ORIGIN,
+  // The SEO suite needs canonical URLs and a sitemap, and the donate button
+  // needs a link, so give the shared server representative values.
+  PUBLIC_URL: process.env.PUBLIC_URL ?? 'https://fileshare.aurorahosting.nl',
+  DONATE_URL: process.env.DONATE_URL ?? 'https://paypal.me/mvdbosch',
 };
 
 if (!existsSync(join(ROOT, 'dist/server/index.js'))) {
