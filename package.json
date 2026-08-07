@@ -1,0 +1,31 @@
+{
+  "name": "aurora-fileshare",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Peer-to-peer file transfers in the browser. Files never touch the server.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:client": "node scripts/build-client.mjs",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run build:client && npm run build:server",
+    "dev": "node scripts/build-client.mjs --watch & tsc -p tsconfig.server.json --watch --preserveWatchOutput & node --watch dist/server/index.js",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json && tsc -p tsconfig.sw.json",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "qrcode-generator": "^2.0.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.24.0",
+    "puppeteer-core": "^25.5.0",
+    "typescript": "^5.7.2"
+  }
+}

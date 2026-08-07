@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aurora FileShare — peer-to-peer file transfers</title>
+<meta name="description" content="Send files straight from your browser to theirs. Nothing is uploaded to a server.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Aurora FileShare</h1>
+    </a>
+    <p class="tagline">
+      Files go straight from your browser to theirs — encrypted, peer to peer.
+      Nothing is stored on our servers, and there is no size limit.
+    </p>
+  </header>
+
+  <p class="error" id="error" hidden></p>
+
+  <section id="picker">
+    <div class="card">
+      <div class="drop-zone" id="drop-zone" tabindex="0" role="button"
+           aria-label="Choose files to share, or drop them here">
+        <strong>Drop files here</strong>
+        <span>or click to choose — they never leave your device until someone downloads them</span>
+      </div>
+      <input type="file" id="file-input" multiple hidden>
+
+      <ul class="files" id="file-list" hidden></ul>
+
+      <label class="field">
+        Password (optional)
+        <input type="password" id="password" autocomplete="new-password"
+               placeholder="Leave blank for no password">
+      </label>
+
+      <button class="block" id="start-share" type="button" disabled>Choose files first</button>
+    </div>
+  </section>
+
+  <section id="share" hidden>
+    <div class="card">
+      <h2>Your share is live</h2>
+      <p class="muted" id="share-summary"></p>
+
+      <div class="share-grid">
+        <div class="share-main">
+          <label class="field" for="share-url">Send this link to whoever needs the files</label>
+          <div class="link-row">
+            <input type="text" id="share-url" readonly>
+            <button id="copy-link" type="button">Copy link</button>
+          </div>
+          <p class="muted spaced">
+            Short code: <code class="slug" id="slug"></code>
+          </p>
+          <p class="note" id="password-note" hidden>
+            This share is password protected — send the password separately from the link.
+          </p>
+          <p class="note">
+            Keep this tab open. The files are served from this device, so closing
+            the tab ends the share.
+          </p>
+        </div>
+        <div class="qr" id="qr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recipients</h2>
+      <p class="muted" id="recipient-count">No one has opened the link yet.</p>
+      <ul class="recipients" id="recipients"></ul>
+    </div>
+  </section>
+
+  <footer>
+    <h3>How this works</h3>
+    <ol>
+      <li>You pick files. They stay on your device — nothing is uploaded.</li>
+      <li>We hand you a link. Our server only introduces the two browsers to each other.</li>
+      <li>The transfer runs directly between the two browsers over WebRTC, encrypted end to end by DTLS.</li>
+    </ol>
+    <p>Aurora Hosting · <a href="/">fileshare.aurorahosting.nl</a></p>
+  </footer>
+
+</div>
+<script type="module" src="/build/upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src/client/**/*.ts", "src/shared/**/*.ts"],
+  "exclude": ["src/client/sw.ts"]
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/build/
+public/sw.js
+*.log
+.env
+.DS_Store
+test/.tmp/

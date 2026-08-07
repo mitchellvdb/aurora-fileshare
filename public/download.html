@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incoming files — Aurora FileShare</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Aurora FileShare</h1>
+    </a>
+    <p class="tagline">
+      Someone is sending you files from their device. Share code
+      <code class="slug" id="slug"></code>.
+    </p>
+  </header>
+
+  <p class="status" id="status">Starting…</p>
+  <p class="error" id="error" hidden></p>
+
+  <section class="card" id="password-gate" hidden>
+    <h2>This share is password protected</h2>
+    <form id="password-form">
+      <label class="field">
+        Password
+        <input type="password" id="password" autocomplete="off" required>
+      </label>
+      <button class="block" type="submit">Unlock</button>
+    </form>
+  </section>
+
+  <section class="card" id="files" hidden>
+    <h2>Files</h2>
+    <p class="muted" id="files-summary"></p>
+    <ul class="files" id="file-list"></ul>
+    <button class="block secondary" id="download-all" type="button" hidden disabled>
+      Download all, one after another
+    </button>
+    <p class="note" id="mode-note" hidden>
+      Your browser will hold each file in memory before saving it, so very large
+      files may fail. Streaming straight to disk needs an HTTPS connection.
+    </p>
+  </section>
+
+  <footer>
+    <h3>Where do these files come from?</h3>
+    <p>
+      Directly from the sender's browser to yours, over an encrypted WebRTC
+      connection. Nothing is stored on Aurora's servers — if the sender closes
+      their tab, the share ends.
+    </p>
+    <p>Aurora Hosting · <a href="/">Send your own files</a></p>
+  </footer>
+
+</div>
+<script type="module" src="/build/download.js"></script>
+</body>
+</html>

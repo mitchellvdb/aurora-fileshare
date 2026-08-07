@@ -1,0 +1,42 @@
+[Unit]
+Description=Aurora FileShare (peer-to-peer file transfer signalling)
+Documentation=https://fileshare.aurorahosting.nl
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fileshare
+Group=fileshare
+WorkingDirectory=/opt/aurora-fileshare
+EnvironmentFile=-/opt/aurora-fileshare/.env
+ExecStart=/usr/bin/node dist/server/index.js
+Restart=always
+RestartSec=3
+
+# The process serves static files and relays JSON. It needs nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+
+# Nothing is written to disk at runtime.
+ReadOnlyPaths=/opt/aurora-fileshare
+
+[Install]
+WantedBy=multi-user.target
