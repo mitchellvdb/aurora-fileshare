@@ -62,7 +62,7 @@ src/server/              Signalling server: WS relay, channel registry, static f
 src/client/              Browser: upload page, download page, transfer, zip, service worker
 public/                  HTML, CSS, built bundles
 deploy/                  LXC creation, bootstrap, systemd unit, Cloudflare Tunnel
-test/                    Signalling, ZIP format, and real two-browser transfer tests
+test/                    Signalling, ZIP, donate, and real two-browser transfer tests
 ```
 
 ## Development
@@ -104,6 +104,19 @@ TUNNEL_TOKEN=eyJ... bash /opt/aurora-fileshare/deploy/setup-tunnel.sh
 ```
 
 Configuration lives in `.env` (see `.env.example`).
+
+## The donate button
+
+Set `DONATE_URL` to any donation page and a "buy me a coffee" button appears in
+the footer of both pages; leave it empty and nothing renders, so there is never
+a dead link to click.
+
+The URL is baked into the HTML as a meta tag at startup rather than fetched at
+runtime, so the button is there on first paint. The icon is inline SVG, not a
+hosted badge - the CSP restricts `img-src` to `'self'`, and a third-party badge
+would report every visitor to that host. Links carry `rel="noopener
+noreferrer"`, which also keeps share slugs out of the payment host's referrer
+logs. Only `http(s)` URLs are accepted, and the label is HTML-escaped.
 
 ## The NAT caveat
 

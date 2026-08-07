@@ -3,6 +3,7 @@ import { MAX_FILES } from '../shared/protocol.js';
 import {
   $, copyToClipboard, el, formatBytes, formatRate, RateMeter, Signaling, uid,
 } from './common.js';
+import { renderDonateButton } from './donate.js';
 import { renderQr } from './qr.js';
 import { FileSender, PeerLink, type SendProgress } from './transfer.js';
 
@@ -284,3 +285,4 @@ window.addEventListener('beforeunload', (ev) => {
 });
 
 renderFileList();
+renderDonateButton(document.querySelector('#donate-slot'));

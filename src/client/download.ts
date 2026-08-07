@@ -1,5 +1,6 @@
 import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
 import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling } from './common.js';
+import { renderDonateButton } from './donate.js';
 import { createSink, initSaver, type SaveMode } from './save.js';
 import { FileReceiver, PeerLink, type ActiveDownload } from './transfer.js';
 import { planZip, ZipWriter } from './zip.js';
@@ -268,5 +269,7 @@ async function downloadAllAsZip(): Promise<void> {
     setButtonsDisabled(false);
   }
 }
+
+renderDonateButton(document.querySelector('#donate-slot'));
 
 void main();

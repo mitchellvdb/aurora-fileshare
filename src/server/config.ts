@@ -57,5 +57,13 @@ export const config = {
 
   publicUrl: process.env['PUBLIC_URL'] ?? '',
 
+  /**
+   * Optional "buy me a coffee" link. Any donation host works - PayPal.me,
+   * Buy Me a Coffee, Ko-fi, Stripe. Left empty the button never renders, so
+   * there is no half-configured dead link to click.
+   */
+  donateUrl: (process.env['DONATE_URL'] ?? '').trim(),
+  donateLabel: (process.env['DONATE_LABEL'] ?? 'Buy me a coffee').trim(),
+
   iceServers: iceServers(),
 } as const;

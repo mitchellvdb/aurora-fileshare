@@ -10,6 +10,7 @@ import { ChannelRegistry, newPeer, send, type Peer } from './channels.js';
 import { RateLimiter } from './rate-limit.js';
 import { isValidSlug } from './slug.js';
 import { securityHeaders, serveFile } from './static.js';
+import { loadDocuments, serveDocument } from './documents.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = resolve(HERE, '../../public');
@@ -44,10 +45,10 @@ const server = createServer(async (req, res) => {
   // A download link is just a pretty URL over the same single-page app; the
   // slug is read from the path by the client.
   if (path === '/' || path === '/index.html') {
-    if (await serveFile(PUBLIC_ROOT, '/index.html', req, res)) return;
+    if (serveDocument('index.html', req, res)) return;
   }
   if (/^\/d\/[^/]+$/.test(path)) {
-    if (await serveFile(PUBLIC_ROOT, '/download.html', req, res)) return;
+    if (serveDocument('download.html', req, res)) return;
   }
 
   if (await serveFile(PUBLIC_ROOT, path, req, res)) return;
@@ -192,6 +193,8 @@ wss.on('connection', (ws: WebSocket, req) => {
   }, 30_000);
   ws.on('close', () => clearInterval(heartbeat));
 });
+
+await loadDocuments(PUBLIC_ROOT);
 
 server.listen(config.port, config.host, () => {
   console.log(`[aurora-fileshare] listening on http://${config.host}:${config.port}`);

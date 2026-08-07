@@ -385,3 +385,40 @@ footer a { color: var(--accent); }
 }
 
 .spaced { margin-top: 10px; }
+
+/* --- Donate ---------------------------------------------------------------- */
+
+.donate-slot { margin-top: 14px; }
+
+.donate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: .88rem;
+  font-weight: 550;
+  text-decoration: none;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+
+.donate:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.donate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.donate svg { flex: none; color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .donate { transition: none; }
+  .donate:hover { transform: none; }
+}
