@@ -127,6 +127,23 @@ The FAQ's structured data is extracted from the page's own markup at startup, so
 the marked-up answers cannot drift from the visible ones - which is precisely
 what gets structured data penalised.
 
+## Crawler visibility
+
+Search consoles report crawl activity days late, which makes "has anything even
+looked at the site yet?" hard to answer. Recognised crawlers are logged by name
+with the path and status, and counters are exposed under `crawlers` in
+`/healthz`:
+
+```
+[crawler] Googlebot (search) GET /faq -> 200
+```
+
+Deliberately narrow. Only known bots are recorded, split into search, social,
+ai and seo; ordinary visitors are never logged, and no IP address or user agent
+string is written anywhere. `recordCrawlerVisit` has no parameter for an address,
+so one cannot be added by accident. The FAQ tells people their address is never
+written down, and the tests assert it stays that way.
+
 ## Cache busting
 
 Bundles and the stylesheet are served under content-hashed names

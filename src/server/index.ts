@@ -9,6 +9,7 @@ import { config } from './config.js';
 import { ChannelRegistry, newPeer, send, type Peer } from './channels.js';
 import { RateLimiter } from './rate-limit.js';
 import { isValidSlug } from './slug.js';
+import { crawlerSummary, identifyCrawler, recordCrawlerVisit } from './crawlers.js';
 import { securityHeaders, serveFile } from './static.js';
 import {
   loadDocuments, serveDocument, serveRobots, serveSitemap,
@@ -38,9 +39,23 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const path = decodeURIComponent(url.pathname);
 
+  // Only recognised crawlers are recorded, and only once the status is known.
+  // Ordinary visitors are never logged - see crawlers.ts.
+  const crawler = identifyCrawler(req.headers['user-agent']);
+  if (crawler) {
+    res.on('finish', () => {
+      recordCrawlerVisit(crawler, req.method ?? 'GET', path, res.statusCode);
+    });
+  }
+
   if (path === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, channels: registry.size, uptime: process.uptime() }));
+    res.end(JSON.stringify({
+      ok: true,
+      channels: registry.size,
+      uptime: process.uptime(),
+      crawlers: crawlerSummary(),
+    }));
     return;
   }
 
