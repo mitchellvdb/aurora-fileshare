@@ -28,11 +28,14 @@ const progressRows = new Map<string, { bar: HTMLElement; status: HTMLElement; me
 function setStatus(text: string, kind: 'info' | 'good' | 'warn' = 'info'): void {
   statusBox.textContent = text;
   statusBox.className = `status status-${kind}`;
+  statusBox.hidden = false;
 }
 
 function showError(message: string): void {
   errorBox.textContent = message;
   errorBox.hidden = false;
+  // The error box says it better; two copies of the same sentence reads as a bug.
+  statusBox.hidden = true;
 }
 
 function clearError(): void {
@@ -159,18 +162,19 @@ function renderFiles(): void {
     total += file.size;
     const bar = el('span', { class: 'bar-fill' });
     const status = el('span', { class: 'file-status' }, 'Ready');
-    const button = el('button', { class: 'download', type: 'button' }, 'Download');
+    const button = el('button', { class: 'btn btn-secondary download', type: 'button' }, 'Download');
     button.disabled = true;
     button.addEventListener('click', () => void downloadOne(file));
 
-    fileList.append(el('li', { class: 'file-row', 'data-file': file.id },
+    fileList.append(el('li', { class: 'file file-block', 'data-file': file.id },
       el('div', { class: 'file-main' },
+        el('span', { class: 'file-bullet', 'aria-hidden': 'true' }),
         el('span', { class: 'file-name' }, file.name),
         el('span', { class: 'file-size' }, formatBytes(file.size)),
         button,
       ),
-      el('span', { class: 'bar' }, bar),
-      status,
+      el('div', { class: 'bar' }, bar),
+      el('div', { class: 'xfer-meta' }, status),
     ));
 
     progressRows.set(file.id, { bar, status, meter: new RateMeter() });

@@ -3,23 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How it works & FAQ — Aurora FileShare</title>
+<title>How it works &amp; FAQ — Aurora FileShare</title>
 <meta name="description" content="How Aurora FileShare sends files peer to peer without uploading them: size limits, privacy, passwords, expiry, browser support and troubleshooting.">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
 <body>
-<div class="wrap">
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
 
-  <header>
-    <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <h1>Aurora FileShare</h1>
-    </a>
-    <p class="tagline">How it works, and answers to the usual questions.</p>
-    <nav class="nav"><a href="/">Send a file</a> · <span class="here">Documentation</span></nav>
-  </header>
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/">Send a file</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Documentation</p>
+  <h1>How it works, and the usual questions.</h1>
+  <p class="lede">
+    Everything below follows from one design choice: the files never reach a server.
+  </p>
 
   <article class="card prose">
     <h2>What it is</h2>
@@ -35,7 +43,7 @@
     </p>
 
     <h2>How a transfer works</h2>
-    <ol class="steps">
+    <ol>
       <li><strong>You pick files.</strong> They stay on your device. Nothing is read or copied yet.</li>
       <li><strong>You get a link.</strong> Our server records only that the share exists, plus the file names and sizes needed to show the recipient what they are about to receive.</li>
       <li><strong>They open the link.</strong> The server introduces the two browsers to each other — this is called signalling — and then steps out of the way.</li>
@@ -150,7 +158,7 @@
     <p>
       Yes, with no account and no limits. It costs very little to run precisely
       because the files never touch the server. If it saved you a trip to a
-      file-hosting site, there is a tip button in the footer.
+      file-hosting site, there is a tip button in the header.
     </p>
 
     <h3>Can I run it myself?</h3>
@@ -160,11 +168,15 @@
       point you at it.
     </p>
   </article>
+</main>
 
-  <footer>
-    <p><a href="/">Send a file</a> · Aurora Hosting</p>
-    <p id="donate-slot" class="donate-slot" hidden></p>
-  </footer>
+<footer>
+  <div class="ftr-row">
+    <a href="/">Send a file</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
 
 </div>
 <script type="module" src="/build/faq.js"></script>

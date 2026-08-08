@@ -81,7 +81,11 @@ export async function serveFile(
   // Hashed bundle assets are immutable; everything else must revalidate so a
   // deploy takes effect immediately (critically, the service worker).
   // esbuild emits uppercase base32 hashes, the stylesheet lowercase hex.
-  const immutable = relPath.startsWith('/build/') && /\.[A-Za-z0-9]{8}\./.test(relPath);
+  // Fonts live outside /build/ because the build wipes that directory, but they
+  // carry the same content hash and are just as safe to pin forever.
+  const hashed = /\.[A-Za-z0-9]{8}\./.test(relPath);
+  const immutable = hashed
+    && (relPath.startsWith('/build/') || relPath.startsWith('/fonts/'));
   res.setHeader('Cache-Control', immutable
     ? 'public, max-age=31536000, immutable'
     : 'no-cache');

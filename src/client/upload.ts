@@ -15,6 +15,7 @@ interface Recipient {
   row: HTMLElement;
   bar: HTMLElement;
   status: HTMLElement;
+  percent: HTMLElement;
   meter: RateMeter;
   label: string;
   sender: FileSender | null;
@@ -31,6 +32,12 @@ let shareUrl = '';
 const dropZone = $<HTMLElement>('#drop-zone');
 const fileInput = $<HTMLInputElement>('#file-input');
 const fileList = $<HTMLElement>('#file-list');
+const filesPanel = $<HTMLElement>('#files-panel');
+const fileCount = $<HTMLElement>('#file-count');
+const fileTotal = $<HTMLElement>('#file-total');
+const moreInput = $<HTMLInputElement>('#file-input-more');
+const composeBox = $<HTMLElement>('#compose');
+const recipientsCard = $<HTMLElement>('#recipients-card');
 const startButton = $<HTMLButtonElement>('#start-share');
 const passwordInput = $<HTMLInputElement>('#password');
 const pickerSection = $<HTMLElement>('#picker');
@@ -67,12 +74,15 @@ function renderFileList(): void {
 
   for (const [id, file] of selected) {
     total += file.size;
-    const remove = el('button', { class: 'icon-button', type: 'button', 'aria-label': `Remove ${file.name}` }, '×');
+    const remove = el('button', {
+      class: 'file-x', type: 'button', 'aria-label': `Remove ${file.name}`,
+    }, '\u00d7');
     remove.addEventListener('click', () => {
       selected.delete(id);
       renderFileList();
     });
-    fileList.append(el('li', { class: 'file-row' },
+    fileList.append(el('li', { class: 'file' },
+      el('span', { class: 'file-bullet', 'aria-hidden': 'true' }),
       el('span', { class: 'file-name' }, file.name),
       el('span', { class: 'file-size' }, formatBytes(file.size)),
       remove,
@@ -80,25 +90,29 @@ function renderFileList(): void {
   }
 
   const count = selected.size;
+  fileCount.textContent = `${count} file${count === 1 ? '' : 's'}`;
+  fileTotal.textContent = formatBytes(total);
+
+  // The drop zone and the list are the same slot in two states.
+  filesPanel.hidden = count === 0;
+  dropZone.hidden = count > 0;
+
   startButton.disabled = count === 0;
   startButton.textContent = count === 0
     ? 'Choose files first'
     : `Create share link for ${count} file${count === 1 ? '' : 's'} (${formatBytes(total)})`;
-  fileList.hidden = count === 0;
 }
 
-fileInput.addEventListener('change', () => {
-  if (fileInput.files) addFiles(fileInput.files);
-  fileInput.value = '';
-});
+// Both pickers append rather than replace, so a second pick adds to the list.
+for (const input of [fileInput, moreInput]) {
+  input.addEventListener('change', () => {
+    if (input.files) addFiles(input.files);
+    input.value = '';
+  });
+}
 
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Enter' || ev.key === ' ') {
-    ev.preventDefault();
-    fileInput.click();
-  }
-});
+// The drop zone is a <label> wrapping the input, so click and keyboard
+// activation come from the browser. A click handler here would double-fire it.
 
 for (const type of ['dragenter', 'dragover'] as const) {
   dropZone.addEventListener(type, (ev) => {
@@ -191,7 +205,6 @@ function showShareScreen(slug: string): void {
   shareSection.hidden = false;
 
   $<HTMLInputElement>('#share-url').value = shareUrl;
-  $<HTMLElement>('#slug').textContent = slug;
 
   const qrHolder = $<HTMLElement>('#qr');
   qrHolder.replaceChildren(renderQr(shareUrl, 180));
@@ -199,7 +212,7 @@ function showShareScreen(slug: string): void {
   const summary = $<HTMLElement>('#share-summary');
   const total = [...selected.values()].reduce((sum, f) => sum + f.size, 0);
   summary.textContent =
-    `${selected.size} file${selected.size === 1 ? '' : 's'} · ${formatBytes(total)} ready to send`;
+    `${selected.size} file${selected.size === 1 ? '' : 's'} · ${formatBytes(total)} ready to send · code ${slug}`;
 
   if (passwordInput.value.trim()) $<HTMLElement>('#password-note').hidden = false;
   updateRecipientCount();
@@ -210,19 +223,23 @@ $<HTMLButtonElement>('#copy-link').addEventListener('click', async (ev) => {
   const ok = await copyToClipboard(shareUrl);
   button.textContent = ok ? 'Copied' : 'Press Ctrl+C';
   if (!ok) $<HTMLInputElement>('#share-url').select();
-  setTimeout(() => { button.textContent = 'Copy link'; }, 2000);
+  setTimeout(() => { button.textContent = 'Copy'; }, 1800);
 });
 
 // --- One peer connection per recipient --------------------------------------
 
 function addRecipient(peerId: string): void {
   const bar = el('span', { class: 'bar-fill' });
+  const percent = el('span', { class: 'xfer-pct' }, '0%');
   const status = el('span', { class: 'recipient-status' }, 'Connecting…');
   const label = `Recipient ${recipients.size + 1}`;
   const row = el('li', { class: 'recipient' },
-    el('span', { class: 'recipient-name' }, label),
-    el('span', { class: 'bar' }, bar),
-    status,
+    el('div', { class: 'xfer-head' },
+      el('span', { class: 'recipient-name xfer-title' }, label),
+      percent,
+    ),
+    el('div', { class: 'bar' }, bar),
+    el('div', { class: 'xfer-meta' }, status),
   );
   $<HTMLElement>('#recipients').append(row);
 
@@ -231,8 +248,8 @@ function addRecipient(peerId: string): void {
   });
 
   const recipient: Recipient = {
-    peerId, link, channel: null, row, bar, status, meter: new RateMeter(), label,
-    sender: null,
+    peerId, link, channel: null, row, bar, status, percent,
+    meter: new RateMeter(), label, sender: null,
   };
   recipients.set(peerId, recipient);
 
@@ -266,12 +283,13 @@ function addRecipient(peerId: string): void {
 }
 
 function onSendProgress(recipient: Recipient, p: SendProgress): void {
-  const percent = p.total === 0 ? 100 : (p.sent / p.total) * 100;
-  recipient.bar.style.width = `${percent.toFixed(1)}%`;
+  const pct = p.total === 0 ? 100 : (p.sent / p.total) * 100;
+  recipient.bar.style.width = `${pct.toFixed(1)}%`;
+  recipient.percent.textContent = `${pct.toFixed(0)}%`;
   const rate = recipient.meter.update(p.sent);
   recipient.status.textContent = p.sent >= p.total
     ? `Sent ${p.name}`
-    : `${p.name} · ${percent.toFixed(0)}% · ${formatRate(rate)}`;
+    : `${p.name} · ${formatBytes(p.sent)} of ${formatBytes(p.total)} · ${formatRate(rate)}`;
 
   if (p.sent >= p.total && p.total > 0) void reportTransfer(recipient);
 }
@@ -293,8 +311,10 @@ async function reportTransfer(recipient: Recipient): Promise<void> {
 function updateRecipientCount(): void {
   const count = recipients.size;
   $<HTMLElement>('#recipient-count').textContent = count === 0
-    ? 'No one has opened the link yet.'
+    ? 'Waiting for the other side to open the link'
     : `${count} ${count === 1 ? 'person has' : 'people have'} opened the link.`;
+  // The transfers card only means anything once somebody is connected.
+  recipientsCard.hidden = count === 0;
 }
 
 // Closing the tab kills every transfer, so make that an explicit choice.

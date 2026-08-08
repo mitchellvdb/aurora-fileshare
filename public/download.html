@@ -5,61 +5,95 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Incoming files — Aurora FileShare</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
 <body>
-<div class="wrap">
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
 
-  <header>
-    <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <h1>Aurora FileShare</h1>
-    </a>
-    <p class="tagline">
-      Someone is sending you files from their device. Share code
-      <code class="slug" id="slug"></code>.
-    </p>
-  </header>
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
 
-  <p class="status" id="status">Starting…</p>
+<main>
+  <p class="kicker">Peer to peer &middot; incoming</p>
+  <h1>Files are on their way to you.</h1>
+  <p class="lede">
+    Straight from the sender's browser to yours, over an encrypted connection.
+    Share code <code class="slug" id="slug"></code>.
+  </p>
+
+  <p class="status status-info" id="status">Starting…</p>
   <p class="error" id="error" hidden></p>
 
   <section class="card" id="password-gate" hidden>
     <h2>This share is password protected</h2>
     <form id="password-form">
-      <label class="field">
-        Password
-        <input type="password" id="password" autocomplete="off" required>
-      </label>
-      <button class="block" type="submit">Unlock</button>
+      <div class="field">
+        <label class="label" for="password">Password</label>
+        <input class="input" type="password" id="password" autocomplete="off" required>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Unlock</button>
+      </div>
     </form>
   </section>
 
   <section class="card" id="files" hidden>
-    <h2>Files</h2>
-    <p class="muted" id="files-summary"></p>
-    <ul class="files" id="file-list"></ul>
-    <button class="block secondary" id="download-all" type="button" hidden disabled>
-      Download all as a .zip
-    </button>
+    <div class="xfer-head">
+      <span class="xfer-title">Receiving</span>
+      <span class="files-total" id="files-summary"></span>
+    </div>
+
+    <ul class="files files-plain" id="file-list"></ul>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="download-all" type="button" hidden disabled>
+        Download all as a .zip
+      </button>
+    </div>
+
     <p class="note" id="mode-note" hidden>
       Your browser will hold each file in memory before saving it, so very large
       files may fail. Streaming straight to disk needs an HTTPS connection.
     </p>
+    <p class="note">Encrypted end to end by DTLS. Nothing passes through our servers.</p>
   </section>
 
-  <footer>
-    <h3>Where do these files come from?</h3>
-    <p>
-      Directly from the sender's browser to yours, over an encrypted WebRTC
-      connection. Nothing is stored on Aurora's servers — if the sender closes
-      their tab, the share ends.
-    </p>
-    <p><a href="/">Send your own files</a> · <a href="/faq">How it works</a> · Aurora Hosting</p>
-    <p id="donate-slot" class="donate-slot" hidden></p>
-  </footer>
+  <section class="steps">
+    <h2>Where do these files come from?</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <p class="step-n">01</p>
+        <p>Directly from the sender's browser to yours &mdash; there is no copy on a server.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">02</p>
+        <p>Our server only introduced the two browsers. It never sees the bytes.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">03</p>
+        <p>If the sender closes their tab, the share ends. Their device is the source.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="ftr-row">
+    <a href="/">Send your own files</a>
+    <a href="/faq">Documentation &amp; FAQ</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
 
 </div>
 <script type="module" src="/build/download.js"></script>

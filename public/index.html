@@ -5,92 +5,134 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aurora FileShare — peer-to-peer file transfers</title>
 <meta name="description" content="Send files straight from your browser to theirs. Nothing is uploaded to a server.">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
 <body>
-<div class="wrap">
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
 
-  <header>
-    <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <h1>Aurora FileShare</h1>
-    </a>
-    <p class="tagline">
-      Files go straight from your browser to theirs — encrypted, peer to peer.
-      Nothing is stored on our servers, and there is no size limit.
-    </p>
-    <nav class="nav"><a href="/faq">How it works &amp; FAQ</a></nav>
-  </header>
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Peer to peer &middot; no upload</p>
+  <h1>Files go straight from your browser to theirs.</h1>
+  <p class="lede">
+    Encrypted, peer to peer. Nothing is stored on our servers, and there is no size limit.
+  </p>
 
   <p class="error" id="error" hidden></p>
 
   <section id="picker">
     <div class="card">
-      <div class="drop-zone" id="drop-zone" tabindex="0" role="button"
-           aria-label="Choose files to share, or drop them here">
-        <strong>Drop files here</strong>
-        <span>or click to choose — they never leave your device until someone downloads them</span>
-      </div>
-      <input type="file" id="file-input" multiple hidden>
 
-      <ul class="files" id="file-list" hidden></ul>
-
-      <label class="field">
-        Password (optional)
-        <input type="password" id="password" autocomplete="new-password"
-               placeholder="Leave blank for no password">
+      <!-- Idle: a label wrapping the input, so click and keyboard both work
+           without script. -->
+      <label class="drop" id="drop-zone">
+        <input type="file" id="file-input" class="hidden-input" multiple>
+        <span class="drop-icon" aria-hidden="true">&uarr;</span>
+        <span class="drop-title">Drop files here</span>
+        <span class="drop-hint">or click to choose &mdash; they never leave your device until someone downloads them</span>
       </label>
 
-      <button class="block" id="start-share" type="button" disabled>Choose files first</button>
+      <!-- Files chosen: replaces the drop zone. -->
+      <div class="files" id="files-panel" hidden>
+        <div class="files-head">
+          <span class="label" id="file-count">0 files</span>
+          <span class="files-total" id="file-total">0 B</span>
+        </div>
+        <ul id="file-list"></ul>
+        <label class="add-more">
+          + Add more files
+          <input type="file" id="file-input-more" class="hidden-input" multiple>
+        </label>
+      </div>
+
+      <div id="compose">
+        <div class="field">
+          <label class="label" for="password">Password (optional)</label>
+          <input class="input" type="password" id="password" autocomplete="new-password"
+                 placeholder="Leave blank for no password">
+        </div>
+        <div class="actions">
+          <button class="btn" id="start-share" type="button" disabled>Choose files first</button>
+          <span class="note">Your browser stays open until the transfer finishes.</span>
+        </div>
+      </div>
+
     </div>
   </section>
 
   <section id="share" hidden>
     <div class="card">
-      <h2>Your share is live</h2>
-      <p class="muted" id="share-summary"></p>
+      <p class="label">Share this link</p>
+      <div class="link-row">
+        <input class="link-box" type="text" id="share-url" readonly aria-label="Share link">
+        <button class="btn-copy" id="copy-link" type="button">Copy</button>
+      </div>
 
-      <div class="share-grid">
-        <div class="share-main">
-          <label class="field" for="share-url">Send this link to whoever needs the files</label>
-          <div class="link-row">
-            <input type="text" id="share-url" readonly>
-            <button id="copy-link" type="button">Copy link</button>
-          </div>
-          <p class="muted spaced">
-            Short code: <code class="slug" id="slug"></code>
-          </p>
+      <div class="qr-row">
+        <div class="qr" id="qr"></div>
+        <div class="qr-note">
+          <p class="muted" id="share-summary"></p>
           <p class="note" id="password-note" hidden>
             This share is password protected — send the password separately from the link.
           </p>
-          <p class="note">
-            Keep this tab open. The files are served from this device, so closing
-            the tab ends the share.
-          </p>
         </div>
-        <div class="qr" id="qr"></div>
       </div>
+
+      <div class="waiting" id="waiting">
+        <span class="pip" aria-hidden="true"></span>
+        <span id="recipient-count">Waiting for the other side to open the link</span>
+      </div>
+
+      <p class="note" id="keep-open">
+        Keep this tab open. The transfer runs between the two browsers, so closing it
+        cancels the share.
+      </p>
     </div>
 
-    <div class="card">
-      <h2>Recipients</h2>
-      <p class="muted" id="recipient-count">No one has opened the link yet.</p>
+    <div class="card" id="recipients-card" hidden>
+      <h2>Transfers</h2>
       <ul class="recipients" id="recipients"></ul>
+      <p class="note">Encrypted end to end by DTLS. Nothing passes through our servers.</p>
     </div>
   </section>
 
-  <footer>
-    <h3>How this works</h3>
-    <ol>
-      <li>You pick files. They stay on your device — nothing is uploaded.</li>
-      <li>We hand you a link. Our server only introduces the two browsers to each other.</li>
-      <li>The transfer runs directly between the two browsers over WebRTC, encrypted end to end by DTLS.</li>
-    </ol>
-    <p><a href="/faq">Documentation &amp; FAQ</a> · Aurora Hosting</p>
-    <p id="donate-slot" class="donate-slot" hidden></p>
-  </footer>
+  <section class="steps">
+    <h2>How this works</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <p class="step-n">01</p>
+        <p>You pick files. They stay on your device &mdash; nothing is uploaded.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">02</p>
+        <p>We hand you a link. Our server only introduces the two browsers to each other.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">03</p>
+        <p>The transfer runs directly between the two browsers over WebRTC, encrypted end to end by DTLS.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="ftr-row">
+    <a href="/faq">Documentation &amp; FAQ</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
 
 </div>
 <script type="module" src="/build/upload.js"></script>

@@ -1,464 +1,596 @@
-/* Aurora FileShare - theme tokens.
-   Light is the base; dark is layered on for both the explicit toggle and the
-   system preference. */
-:root {
-  --bg: #f6f8fc;
-  --bg-elevated: #ffffff;
-  --border: #dde3ee;
-  --border-strong: #c3cdde;
-  --text: #14181f;
-  --text-muted: #5a667a;
-  --accent: #1f7a6a;
-  --accent-strong: #165c50;
-  --accent-contrast: #ffffff;
-  --accent-soft: #e2f4f0;
-  --danger: #a3312a;
-  --danger-soft: #fdecea;
-  --warn: #8a5a12;
-  --warn-soft: #fdf3e2;
-  --good: #1f6b3f;
-  --aurora-1: #2bb673;
-  --aurora-2: #23a6c9;
-  --aurora-3: #7b5ad1;
-  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .06);
-  --radius: 12px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+/*
+ * Aurora FileShare — visual system.
+ *
+ * Implements the Aurora design handoff: one dark ground, one accent, depth from
+ * a soft gradient plus a 1px edge rather than stacked shadows. The header spans
+ * 1180px while everything below it spans a 760px app column; that mismatch is
+ * deliberate.
+ *
+ * Fonts are self-hosted. Both families are single variable files, so one face
+ * per family covers every weight the design uses, and the strict CSP needs no
+ * third-party origin.
+ */
+
+@font-face {
+  font-family: Archivo;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(/fonts/archivo.8f704806.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url(/fonts/jetbrains-mono.83c005d4.woff2) format('woff2');
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0c1017;
-    --bg-elevated: #141a24;
-    --border: #232c3a;
-    --border-strong: #33405480;
-    --text: #e7ecf5;
-    --text-muted: #98a5b8;
-    --accent: #3fcfae;
-    --accent-strong: #6fe0c4;
-    --accent-contrast: #06231d;
-    --accent-soft: #12312b;
-    --danger: #ff8b82;
-    --danger-soft: #35191a;
-    --warn: #e8b464;
-    --warn-soft: #33270f;
-    --good: #6fd39a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);
-  }
+:root {
+  --bg: #060a12;
+  --surface: #0b1119;
+  --surface-2: #080e16;
+  --card-bot: #080d14;
+
+  --border: #17222e;
+  --border-2: #22303d;
+  --border-faint: #131c26;
+  --border-dim: #1c2733;
+
+  --text: #e6eef1;
+  --text-2: #c3ced5;
+  --muted: #93a4ae;
+  --muted-2: #7d8d97;
+  --muted-3: #6c7b85;
+  --muted-4: #5d6b74;
+
+  --accent: #43e0a0;
+  --accent-hi: #66ecb6;
+  --accent-link-hi: #8ff2c6;
+  --accent-ink: #04150e;
+  --accent-edge: #2c4a3f;
+  --teal: #35c8d8;
+
+  /* Failure is the one place the palette leaves the green. */
+  --danger: #ff8b7a;
+  --danger-edge: #4a2a26;
+
+  --font: Archivo, system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --edge: clamp(20px, 5vw, 48px);
+  --app: 760px;
+  --glow: 0 10px 34px -12px rgba(67, 224, 160, .7);
+
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 0;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap {
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 40px 20px 72px;
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-link-hi); }
+::selection { background: rgba(67, 224, 160, .25); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+input::placeholder { color: var(--muted-4); }
+h1, h2, h3, p, ol, ul { margin: 0; }
+[hidden] { display: none !important; }
+
+/* The wrapper clips, not body: the aurora is left:-10%;width:120%, and a
+   body-only guard leaves the html element scrolling horizontally instead. */
+.page { position: relative; min-height: 100vh; overflow-x: hidden; }
+
+.aurora {
+  position: absolute;
+  top: -280px; left: -10%;
+  width: 120%; height: 880px;
+  pointer-events: none;
+  background:
+    radial-gradient(760px 380px at 30% 42%, rgba(67, 224, 160, .28), transparent 64%),
+    radial-gradient(680px 340px at 66% 24%, rgba(53, 200, 216, .22), transparent 62%),
+    radial-gradient(1000px 520px at 50% 6%, rgba(94, 116, 255, .15), transparent 70%);
+  animation: auroraDrift 46s ease-in-out infinite;
+}
+.aurora-fade {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 880px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 52%, var(--bg) 100%);
 }
 
-/* --- Header --------------------------------------------------------------- */
+@keyframes auroraDrift {
+  0%   { transform: translate3d(-3%, 0, 0) scale(1); }
+  50%  { transform: translate3d(4%, 1%, 0) scale(1.09); }
+  100% { transform: translate3d(-3%, 0, 0) scale(1); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: .35; }
+  50%      { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
 
-header { margin-bottom: 32px; }
+/* --- Shared type roles --------------------------------------------------- */
 
+.kicker {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.note { font-size: 13px; color: var(--muted-3); line-height: 1.5; }
+.muted { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+code, .slug {
+  font-family: var(--mono);
+  font-size: .95em;
+  color: var(--accent);
+}
+
+/* --- Header -------------------------------------------------------------- */
+
+.hdr {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px var(--edge);
+}
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: inherit;
-}
-
-.brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--aurora-1), var(--aurora-2) 55%, var(--aurora-3));
-  flex: none;
-}
-
-.brand h1 {
-  font-size: 1.35rem;
-  margin: 0;
-  letter-spacing: -.02em;
-}
-
-.tagline {
-  color: var(--text-muted);
-  margin: 10px 0 0;
-  font-size: .97rem;
-}
-
-/* --- Cards ---------------------------------------------------------------- */
-
-.card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 22px;
-  margin-bottom: 20px;
-}
-
-h2 {
-  font-size: 1.03rem;
-  margin: 0 0 14px;
+  gap: 9px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 17px;
   letter-spacing: -.01em;
 }
-
-/* --- Drop zone ------------------------------------------------------------ */
-
-.drop-zone {
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius);
-  padding: 44px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color .15s, background .15s;
-  background: transparent;
-}
-
-.drop-zone:hover,
-.drop-zone:focus-visible,
-.drop-zone.dragging {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  outline: none;
-}
-
-.drop-zone strong { display: block; font-size: 1.06rem; margin-bottom: 4px; }
-.drop-zone span { color: var(--text-muted); font-size: .92rem; }
-
-/* --- File lists ----------------------------------------------------------- */
-
-ul.files {
-  list-style: none;
-  margin: 18px 0 0;
-  padding: 0;
-}
-
-.file-row {
-  border-top: 1px solid var(--border);
-  padding: 12px 0;
-}
-
-.file-row:first-child { border-top: none; }
-
-.file-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.file-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.file-size {
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  font-size: .9rem;
-  flex: none;
-}
-
-.file-status,
-.recipient-status {
-  display: block;
-  color: var(--text-muted);
-  font-size: .85rem;
-  font-variant-numeric: tabular-nums;
-  margin-top: 4px;
-}
-
-/* --- Progress bars -------------------------------------------------------- */
-
-.bar {
-  display: block;
-  height: 5px;
-  background: var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 9px;
-}
-
-.bar-fill {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--aurora-1), var(--aurora-2));
-  transition: width .18s ease-out;
-}
-
-/* --- Controls ------------------------------------------------------------- */
-
-button {
-  font: inherit;
-  font-weight: 550;
-  border-radius: 9px;
-  border: 1px solid transparent;
-  padding: 10px 16px;
-  cursor: pointer;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  transition: background .15s, opacity .15s;
-}
-
-button:hover:not(:disabled) { background: var(--accent-strong); }
-button:disabled { opacity: .5; cursor: not-allowed; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-button.secondary {
-  background: transparent;
-  color: var(--text);
-  border-color: var(--border-strong);
-}
-button.secondary:hover:not(:disabled) { background: var(--accent-soft); }
-
-button.block { display: block; width: 100%; margin-top: 18px; }
-
-button.download { flex: none; padding: 7px 14px; font-size: .9rem; }
-
-.icon-button {
-  background: transparent;
-  color: var(--text-muted);
-  border: none;
-  font-size: 1.3rem;
-  line-height: 1;
-  padding: 2px 8px;
-  flex: none;
-}
-.icon-button:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
-
-label.field {
-  display: block;
-  margin-top: 18px;
-  font-size: .9rem;
-  color: var(--text-muted);
-}
-
-input[type="text"],
-input[type="password"] {
-  font: inherit;
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg);
-  color: var(--text);
-}
-
-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-
-/* --- Share screen --------------------------------------------------------- */
-
-.share-grid {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.share-main { flex: 1 1 300px; min-width: 0; }
-
-.qr {
-  flex: none;
-  background: #fff;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  line-height: 0;
-}
-
-.link-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.link-row input {
-  font-family: var(--mono);
-  font-size: .88rem;
-  margin-top: 0;
-}
-
-.link-row button { flex: none; }
-
-code.slug {
-  font-family: var(--mono);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: .92rem;
-}
-
-/* --- Status / notes ------------------------------------------------------- */
-
-.status {
-  padding: 11px 14px;
-  border-radius: 9px;
-  font-size: .92rem;
-  margin: 0 0 18px;
-  background: var(--accent-soft);
-  color: var(--text);
-}
-.status-good { background: var(--accent-soft); }
-.status-warn { background: var(--warn-soft); color: var(--warn); }
-
-.note {
-  background: var(--warn-soft);
-  color: var(--warn);
-  border-radius: 9px;
-  padding: 11px 14px;
-  font-size: .89rem;
-  margin-top: 16px;
-}
-
-.error {
-  background: var(--danger-soft);
-  color: var(--danger);
-  border-radius: 9px;
-  padding: 11px 14px;
-  font-size: .92rem;
-  margin-bottom: 18px;
-}
-
-.muted { color: var(--text-muted); font-size: .9rem; }
-
-/* --- Recipients ----------------------------------------------------------- */
-
-ul.recipients { list-style: none; margin: 14px 0 0; padding: 0; }
-
-.recipient {
-  border-top: 1px solid var(--border);
-  padding: 12px 0;
-}
-.recipient:first-child { border-top: none; }
-.recipient-name { font-weight: 550; font-size: .94rem; }
-.recipient.connected .recipient-name::after {
-  content: "";
-  display: inline-block;
-  width: 7px; height: 7px;
+.brand:hover { color: var(--text); }
+.dot {
+  width: 9px; height: 9px;
   border-radius: 50%;
-  background: var(--good);
-  margin-left: 7px;
-  vertical-align: middle;
+  background: var(--accent);
+  box-shadow: 0 0 12px 2px rgba(67, 224, 160, .7);
+  flex: none;
 }
-.recipient.failed .recipient-status { color: var(--danger); }
+.hdr .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
-/* --- Footer --------------------------------------------------------------- */
-
-footer {
-  margin-top: 36px;
-  color: var(--text-muted);
-  font-size: .87rem;
+.lnk-quiet {
+  color: var(--text-2);
+  font-size: 14.5px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
-footer h3 { font-size: .93rem; color: var(--text); margin: 0 0 8px; }
-footer ol { margin: 0 0 16px; padding-left: 20px; }
-footer li { margin-bottom: 5px; }
-footer a { color: var(--accent); }
+.lnk-quiet:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
 
-[hidden] { display: none !important; }
-
-@media (max-width: 560px) {
-  .wrap { padding: 24px 16px 48px; }
-  .card { padding: 18px; }
-  .share-grid { flex-direction: column-reverse; }
-  .qr { align-self: center; }
-  .file-main { flex-wrap: wrap; }
-}
-
-.spaced { margin-top: 10px; }
-
-/* --- Donate ---------------------------------------------------------------- */
-
-.donate-slot { margin-top: 14px; }
-
-.donate {
+/* The donate link is injected by script, so it carries its own class rather
+   than the markup's. Same treatment as the outlined header link. */
+.lnk-outline, .donate {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-elevated);
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  font-size: 14.5px;
+  padding: 8px 15px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.lnk-outline:hover, .donate:hover { border-color: var(--accent); color: var(--text); }
+.donate svg { flex: none; }
+#donate-slot { display: flex; }
+
+/* --- Page column --------------------------------------------------------- */
+
+main {
+  position: relative;
+  z-index: 2;
+  max-width: var(--app);
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 84px) var(--edge) 0;
+}
+h1 {
+  font-size: clamp(34px, 5.4vw, 56px);
+  line-height: 1.06;
+  letter-spacing: -.035em;
+  font-weight: 600;
+  max-width: 18ch;
+  text-wrap: balance;
+  margin-top: 20px;
+}
+.lede {
+  font-size: clamp(16px, 1.7vw, 18px);
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 54ch;
+  margin-top: 22px;
+  text-wrap: pretty;
+}
+
+/* --- Card ---------------------------------------------------------------- */
+
+.card {
+  margin-top: clamp(32px, 5vw, 48px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--surface), var(--card-bot));
+  padding: clamp(20px, 3.4vw, 28px);
+}
+.card + .card { margin-top: 20px; }
+.card h2 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+}
+.card h2 + .muted { margin-top: 8px; }
+
+/* --- Drop zone ----------------------------------------------------------- */
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  min-height: 210px;
+  padding: 32px 24px;
+  border: 1px dashed var(--border-2);
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color .18s, background .18s;
+}
+.drop:hover { border-color: var(--accent-edge); }
+.drop.dragging { border-color: var(--accent); background: rgba(67, 224, 160, .06); }
+.drop.dragging .drop-icon { border-color: var(--accent); }
+.drop-icon {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+}
+.drop-title { font-size: 19px; font-weight: 600; letter-spacing: -.02em; margin-top: 4px; }
+.drop-hint { font-size: 14px; color: var(--muted); line-height: 1.55; max-width: 42ch; }
+
+/* Keeps the input focusable and label-activated without showing it. */
+.hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* --- File list ----------------------------------------------------------- */
+
+.files {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  list-style: none;
+  padding: 0;
+}
+/* The rows live in a nested <ul>; without this its default indent pushes every
+   filename out of line with the header row above it. */
+.files ul { list-style: none; margin: 0; padding: 0; }
+
+.files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.files-total { font-family: var(--mono); font-size: 13px; color: var(--text-2); }
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.file:last-child { border-bottom: 0; }
+.file-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-edge); flex: none; }
+.file-name { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.file-size { font-family: var(--mono); font-size: 13px; color: var(--muted-2); flex: none; }
+.file-x {
+  border: 0;
+  background: transparent;
+  color: var(--muted-4);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex: none;
+}
+.file-x:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
+
+.add-more {
+  display: block;
+  width: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 14px 18px;
+  cursor: pointer;
+}
+.add-more:hover { color: var(--text); background: rgba(255, 255, 255, .03); }
+
+/* --- Form ---------------------------------------------------------------- */
+
+.field { margin-top: 22px; }
+.field .label { display: block; margin-bottom: 10px; }
+.input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
   color: var(--text);
-  font-size: .88rem;
-  font-weight: 550;
-  text-decoration: none;
-  transition: border-color .15s, background .15s, transform .15s;
+  font-family: var(--font);
+  font-size: 15px;
+  padding: 13px 15px;
+  outline: none;
+}
+.input:focus { border-color: var(--accent); }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 22px; }
+
+.btn {
+  border: 0;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 15.5px;
+  padding: 14px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+.btn:hover { background: var(--accent-hi); }
+
+/* Disabled is a different treatment, not the same button dimmed. */
+.btn:disabled,
+.btn[disabled] {
+  border: 1px solid var(--border-dim);
+  background: transparent;
+  color: var(--muted-4);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
-.donate:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  box-shadow: none;
 }
+.btn-secondary:hover { background: transparent; border-color: var(--accent); color: var(--text); }
 
-.donate:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+/* --- Link ready ---------------------------------------------------------- */
 
-.donate svg { flex: none; color: var(--accent); }
-
-@media (prefers-reduced-motion: reduce) {
-  .donate { transition: none; }
-  .donate:hover { transform: none; }
-}
-
-/* --- Navigation and long-form content -------------------------------------- */
-
-.nav {
-  margin-top: 12px;
-  font-size: .92rem;
-  color: var(--text-muted);
-}
-.nav a { color: var(--accent); }
-.nav .here { color: var(--text); font-weight: 550; }
-
-.prose h2 {
-  font-size: 1.12rem;
-  margin: 26px 0 10px;
-}
-.prose h2:first-child { margin-top: 0; }
-
-.prose h3 {
-  font-size: .99rem;
-  margin: 24px 0 6px;
-  color: var(--text);
-}
-
-.prose p { margin: 0 0 12px; color: var(--text-muted); }
-.prose p strong, .prose li strong { color: var(--text); }
-.prose em { color: var(--text); font-style: italic; }
-
-.prose code {
+.link-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 12px; }
+.link-box {
+  flex: 1;
+  min-width: 240px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  padding: 13px 15px;
   font-family: var(--mono);
-  font-size: .88em;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  padding: 1px 6px;
-  border-radius: 5px;
+  font-size: 14px;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+.link-box:focus { border-color: var(--accent); }
+.btn-copy {
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 13px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-copy:hover { background: var(--accent-hi); }
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pip {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulseDot 1.6s ease-in-out infinite;
+  flex: none;
+}
+.waiting span { font-size: 14px; color: var(--muted); }
+.waiting + .note { margin-top: 14px; }
+
+/* The QR is not in the handoff; it is existing functionality. Treated as a
+   quiet surface so it sits beside the link row without competing with it. */
+.qr-row { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-top: 20px; }
+.qr {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  line-height: 0;
+  flex: none;
+}
+.qr svg, .qr canvas, .qr img { display: block; width: 132px; height: 132px; }
+.qr-note { flex: 1; min-width: 200px; }
+
+/* --- Transfer ------------------------------------------------------------ */
+
+.xfer-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.xfer-title { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.xfer-pct { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--accent); }
+.bar { height: 6px; border-radius: 99px; background: var(--border-faint); overflow: hidden; margin-top: 18px; }
+.bar-fill {
+  /* Rendered as a <span>, and height does not apply to inline boxes - without
+     this the fill is invisible and the bar never appears to move. */
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--teal));
+  width: 0;
+  transition: width .2s linear;
+}
+.xfer-meta {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted-2);
 }
 
-.prose ol.steps { margin: 0 0 14px; padding-left: 20px; }
-.prose ol.steps li { margin-bottom: 8px; color: var(--text-muted); }
+/* One recipient per row, each mirroring the transfer state. */
+.recipients { list-style: none; padding: 0; margin-top: 18px; display: grid; gap: 14px; }
+.recipient {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 16px 18px;
+}
+.recipient.connected { border-color: var(--accent-edge); }
+.recipient.failed { border-color: var(--danger-edge); }
+.recipient-name { font-size: 14.5px; font-weight: 500; }
+.recipient .xfer-meta { margin-top: 10px; gap: 18px; }
 
-.prose a { color: var(--accent); }
+/* --- Status and errors --------------------------------------------------- */
+
+.status {
+  margin-top: 18px;
+  font-size: 14.5px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.error {
+  margin-top: 18px;
+  border: 1px solid var(--danger-edge);
+  border-radius: 10px;
+  background: rgba(255, 139, 122, .06);
+  color: var(--danger);
+  font-size: 14.5px;
+  line-height: 1.55;
+  padding: 13px 16px;
+}
+
+/* --- Steps --------------------------------------------------------------- */
+
+.steps { margin-top: clamp(56px, 9vw, 110px); }
+.steps h2 { font-size: clamp(22px, 2.8vw, 30px); font-weight: 600; letter-spacing: -.03em; margin-bottom: 32px; }
+/* The 180px minimum is load-bearing: inside the 760px column a larger minimum
+   resolves to two tracks and orphans the third step. */
+.steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 32px 28px; }
+.step-n { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--accent); margin-bottom: 14px; }
+.step p { color: var(--muted); font-size: 14.5px; line-height: 1.65; }
+
+/* --- Prose (FAQ) --------------------------------------------------------- */
+
+.prose { margin-top: clamp(32px, 5vw, 48px); }
+.prose h2 {
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 600;
+  letter-spacing: -.03em;
+  margin-top: 40px;
+}
+.prose > h2:first-child { margin-top: 0; }
+.prose h3 { font-size: 16.5px; font-weight: 600; letter-spacing: -.02em; margin-top: 28px; }
+.prose p { color: var(--muted); font-size: 14.5px; line-height: 1.7; margin-top: 12px; }
+.prose strong { color: var(--text-2); font-weight: 600; }
+.prose em { color: var(--text-2); font-style: italic; }
+.prose ol, .prose ul { color: var(--muted); font-size: 14.5px; line-height: 1.7; margin-top: 12px; padding-left: 20px; }
+.prose li { margin-top: 8px; }
+.prose li::marker { color: var(--muted-4); }
+
+/* --- Footer -------------------------------------------------------------- */
+
+footer {
+  position: relative;
+  z-index: 2;
+  max-width: var(--app);
+  margin: clamp(64px, 9vw, 104px) auto 0;
+  padding: 0 var(--edge);
+}
+/* The rule lives on the inner row so it stops at the content edge; putting it
+   and the gutter on one element draws it wider than every other edge. */
+.ftr-row {
+  border-top: 1px solid var(--border-faint);
+  padding: 28px 0 48px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  align-items: center;
+}
+footer a { color: var(--muted-2); font-size: 14px; }
+footer a:hover { color: var(--text); }
+.copyright { margin-left: auto; color: var(--muted-4); font-size: 13px; }
+
+/* --- Download page rows -------------------------------------------------- */
+
+/* The receiving side stacks: identity on one line, then its own progress bar,
+   so several files can be in flight at once without the rows jumping around. */
+.files-plain { margin-top: 18px; }
+.file-block { display: block; padding: 16px 18px; }
+.file-main { display: flex; align-items: center; gap: 14px; }
+.file-block .bar { margin-top: 14px; }
+.file-block .xfer-meta { margin-top: 10px; }
+.file-main .download { font-size: 14px; padding: 9px 16px; flex: none; }
+.file-status { font-family: var(--mono); font-size: 13px; color: var(--muted-2); }
+
+/* The pip is a pseudo-element so that updating the line's text cannot wipe it.
+   It only pulses while something is actually in progress. */
+.status::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--muted-4);
+  flex: none;
+}
+.status-info::before { background: var(--accent); animation: pulseDot 1.6s ease-in-out infinite; }
+.status-good::before { background: var(--accent); }
+.status-good { color: var(--text-2); }
+.status-warn::before { background: var(--danger); }
+.status-warn { color: var(--danger); }
