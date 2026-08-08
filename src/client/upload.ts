@@ -6,6 +6,7 @@ import {
 import { renderDonateButton } from './donate.js';
 import { renderQr } from './qr.js';
 import { FileSender, PeerLink, type SendProgress } from './transfer.js';
+import { describeTransport, summarise } from './diagnostics.js';
 
 interface Recipient {
   peerId: string;
@@ -16,6 +17,7 @@ interface Recipient {
   status: HTMLElement;
   meter: RateMeter;
   label: string;
+  sender: FileSender | null;
 }
 
 const selected = new Map<string, File>();
@@ -230,6 +232,7 @@ function addRecipient(peerId: string): void {
 
   const recipient: Recipient = {
     peerId, link, channel: null, row, bar, status, meter: new RateMeter(), label,
+    sender: null,
   };
   recipients.set(peerId, recipient);
 
@@ -246,7 +249,9 @@ function addRecipient(peerId: string): void {
     row.classList.remove('connected');
   });
 
-  new FileSender(channel, selected, (p: SendProgress) => onSendProgress(recipient, p), link.pc);
+  recipient.sender = new FileSender(
+    channel, selected, (p: SendProgress) => onSendProgress(recipient, p), link.pc,
+  );
 
   link.pc.addEventListener('connectionstatechange', () => {
     const state = link.pc.connectionState;
@@ -267,6 +272,22 @@ function onSendProgress(recipient: Recipient, p: SendProgress): void {
   recipient.status.textContent = p.sent >= p.total
     ? `Sent ${p.name}`
     : `${p.name} · ${percent.toFixed(0)}% · ${formatRate(rate)}`;
+
+  if (p.sent >= p.total && p.total > 0) void reportTransfer(recipient);
+}
+
+/**
+ * Once a file is through, work out what the ceiling actually was and say so.
+ * "It was slow" is not actionable; "your upload was the limit" is.
+ */
+async function reportTransfer(recipient: Recipient): Promise<void> {
+  const stats = recipient.sender?.lastTransfer;
+  if (!stats) return;
+  const transport = await describeTransport(recipient.link.pc);
+  const lines = summarise(stats, transport);
+  // The detail goes to the console; the headline verdict goes on the row.
+  console.info(`[fileshare] ${recipient.label}\n  ${lines.join('\n  ')}`);
+  recipient.status.title = lines.join(' · ');
 }
 
 function updateRecipientCount(): void {

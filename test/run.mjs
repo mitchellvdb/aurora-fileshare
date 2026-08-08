@@ -80,7 +80,12 @@ try {
   }
 
   const hasChrome = existsSync(CHROME);
-  const files = readdirSync(HERE).filter((f) => f.endsWith('.test.mjs')).sort();
+  // ONLY=transfer runs a single suite - useful when benchmarking one path.
+  const only = process.env.ONLY;
+  const files = readdirSync(HERE)
+    .filter((f) => f.endsWith('.test.mjs'))
+    .filter((f) => !only || f.includes(only))
+    .sort();
 
   for (const file of files) {
     const needsBrowser = file !== 'signaling.test.mjs';

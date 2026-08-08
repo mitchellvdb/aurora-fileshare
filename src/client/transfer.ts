@@ -1,4 +1,5 @@
 import { uid } from './common.js';
+import type { SendStats } from './diagnostics.js';
 import {
   BUFFER_HIGH_WATER,
   BUFFER_LOW_WATER,
@@ -104,6 +105,19 @@ export class FileSender {
   private queue: Promise<void> = Promise.resolve();
   private readonly cancelled = new Set<string>();
 
+  /**
+   * Sampled while sending so we can tell afterwards whether we were the
+   * bottleneck or the network was. See diagnostics.ts.
+   */
+  private sends = 0;
+  private starvedSends = 0;
+  private lastStats: SendStats | null = null;
+
+  /** Stats for the most recently completed file, if any. */
+  get lastTransfer(): SendStats | null {
+    return this.lastStats;
+  }
+
   constructor(
     private readonly dc: RTCDataChannel,
     private readonly files: Map<string, File>,
@@ -181,6 +195,9 @@ export class FileSender {
 
     const chunkSize = this.chunkSize();
     const report = throttle(PROGRESS_INTERVAL_MS, this.onProgress);
+    const startedAt = performance.now();
+    this.sends = 0;
+    this.starvedSends = 0;
 
     // Keep one block's read in flight while the previous block goes out, so
     // disk latency overlaps the network rather than adding to it. Reading a
@@ -210,6 +227,10 @@ export class FileSender {
         }
 
         const end = Math.min(start + chunkSize, block.byteLength);
+        // A near-empty outgoing buffer at this point means we are failing to
+        // keep the channel fed, i.e. the limit is here and not on the wire.
+        this.sends++;
+        if (this.dc.bufferedAmount < chunkSize) this.starvedSends++;
         // send() copies, so handing it a view into the block is safe and saves
         // allocating a fresh buffer per message.
         this.dc.send(block.subarray(start, end));
@@ -217,6 +238,14 @@ export class FileSender {
         report({ fileId, name: file.name, sent: offset, total: file.size });
       }
     }
+
+    const seconds = (performance.now() - startedAt) / 1000;
+    this.lastStats = {
+      bytes: file.size,
+      seconds,
+      bytesPerSecond: seconds > 0 ? file.size / seconds : 0,
+      starvedPercent: this.sends > 0 ? Math.round((this.starvedSends / this.sends) * 100) : 0,
+    };
 
     // The throttle may have swallowed the last sample; completion must land.
     this.onProgress({ fileId, name: file.name, sent: file.size, total: file.size });

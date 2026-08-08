@@ -42,6 +42,9 @@ try {
   const senderErrors = [];
   sender.on('pageerror', (e) => senderErrors.push(String(e)));
   sender.on('console', (m) => { if (m.type() === 'error') senderErrors.push(m.text()); });
+  // Everything the sender logs, so we can assert on the transfer diagnostics.
+  const senderLogs = [];
+  sender.on('console', (m) => senderLogs.push(m.text()));
 
   await sender.goto(ORIGIN, { waitUntil: 'networkidle0' });
 
@@ -117,6 +120,21 @@ try {
     const throughput = SIZE / elapsed / (1024 * 1024);
     console.log(`      (${throughput.toFixed(1)} MB/s over loopback)`);
   }
+
+  // --- Diagnostics ----------------------------------------------------------
+  // The sender reports what limited the transfer. Without this the only answer
+  // to "why was it slow" is guesswork.
+  const diag = senderLogs.find((l) => l.includes('[fileshare]'));
+  check('sender reports transfer diagnostics', Boolean(diag), (diag ?? '').split('\n')[1]?.trim());
+  check('diagnostics include a starvation figure',
+    /Send buffer starved on \d+% of writes/.test(diag ?? ''),
+    (diag ?? '').match(/Send buffer starved on \d+% of writes/)?.[0]);
+  check('diagnostics name the path',
+    /Path: \w+ . \w+ \((direct|relayed)\)/.test(diag ?? ''),
+    (diag ?? '').match(/Path: .*/)?.[0]);
+  check('diagnostics reach a verdict',
+    /Limited by/.test(diag ?? ''),
+    (diag ?? '').match(/Limited by[^\n]*/)?.[0]);
 
   // --- Sender progress ------------------------------------------------------
   check('sender shows the transfer finished',
