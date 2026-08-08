@@ -246,7 +246,7 @@ function addRecipient(peerId: string): void {
     row.classList.remove('connected');
   });
 
-  new FileSender(channel, selected, (p: SendProgress) => onSendProgress(recipient, p));
+  new FileSender(channel, selected, (p: SendProgress) => onSendProgress(recipient, p), link.pc);
 
   link.pc.addEventListener('connectionstatechange', () => {
     const state = link.pc.connectionState;

@@ -1,4 +1,5 @@
 import { uid } from './common.js';
+import { RECEIVE_HIGH_WATER } from '../shared/protocol.js';
 import type { ReceiveSink } from './transfer.js';
 
 /**
@@ -91,7 +92,18 @@ async function createStreamSink(name: string, size: number, mime: string): Promi
   if (!controller) throw new Error('No service worker controller.');
 
   const id = uid();
-  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  // Both halves need a real window. A stream defaults to holding one chunk,
+  // and this one is transferred to the service worker, so that default makes
+  // every chunk wait for a page-to-worker round trip before the next can be
+  // accepted - which caps throughput at one chunk per round trip no matter how
+  // fast the network is. Sizing the queues in bytes lets chunks keep arriving
+  // while the worker drains them, and still bounds what we hold in memory.
+  const backpressure = () => new ByteLengthQueuingStrategy({ highWaterMark: RECEIVE_HIGH_WATER });
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>(
+    undefined,
+    backpressure(),
+    backpressure(),
+  );
   const writer = writable.getWriter();
 
   const acknowledged = new Promise<void>((resolvePromise, rejectPromise) => {

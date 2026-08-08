@@ -81,14 +81,47 @@ export type TransferMessage =
   | { t: 'cancel'; reqId: string };
 
 /**
- * 64 KiB. Comfortably under the 256 KiB message ceiling that every WebRTC
- * implementation supports, and large enough that per-message overhead is noise.
+ * Largest single data-channel message we will send.
+ *
+ * 256 KiB is the ceiling every current browser advertises in its SDP
+ * (`a=max-message-size:262144`), and the sender clamps to whatever the peer
+ * actually negotiated. Per-message cost - a send() call, an SCTP header, a
+ * receive event, and a trip through the receiver's promise chain - is paid once
+ * per message no matter how big it is, so larger messages mean proportionally
+ * less overhead per byte.
  */
-export const CHUNK_SIZE = 64 * 1024;
+export const CHUNK_SIZE = 256 * 1024;
+
+/** Conservative floor: the smallest message size WebRTC guarantees. */
+export const MIN_CHUNK_SIZE = 64 * 1024;
+
+/**
+ * How much we read from disk in one go. Reading is asynchronous and each read
+ * costs a round trip to the browser's file backend, so we pull a large block
+ * and carve messages out of it in memory rather than paying that cost per
+ * message. The sender keeps one block read in flight while sending the
+ * previous one, so disk latency overlaps the network instead of adding to it.
+ */
+export const READ_BLOCK_SIZE = 4 * 1024 * 1024;
 
 /** Stop reading from disk once this much is queued in the data channel. */
 export const BUFFER_HIGH_WATER = 8 * 1024 * 1024;
-/** Resume reading once the queue drains below this. */
-export const BUFFER_LOW_WATER = 1 * 1024 * 1024;
+/**
+ * Resume reading once the queue drains below this. Deliberately not near zero:
+ * the send buffer must still hold data while we go get more, or the link goes
+ * idle every time we refill and throughput collapses to one block per round
+ * trip.
+ */
+export const BUFFER_LOW_WATER = 2 * 1024 * 1024;
+
+/**
+ * How many bytes the receiver may hold between the data channel and the disk.
+ * Without a real window here the stream defaults to a single chunk, which
+ * serialises every chunk behind a page-to-service-worker round trip.
+ */
+export const RECEIVE_HIGH_WATER = 8 * 1024 * 1024;
+
+/** Progress callbacks are sampled at this interval rather than fired per chunk. */
+export const PROGRESS_INTERVAL_MS = 100;
 
 export const MAX_FILES = 64;

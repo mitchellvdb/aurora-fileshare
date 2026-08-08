@@ -20,7 +20,7 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 // A 12 MB file of random bytes: big enough to span ~190 chunks and exercise
 // the backpressure path, small enough to keep the test quick.
-const SIZE = 12 * 1024 * 1024;
+const SIZE = Number(process.env.PAYLOAD_MB ?? 12) * 1024 * 1024;
 const payload = randomBytes(SIZE);
 const srcPath = `${TMP}/payload.bin`;
 writeFileSync(srcPath, payload);

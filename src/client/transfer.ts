@@ -3,9 +3,28 @@ import {
   BUFFER_HIGH_WATER,
   BUFFER_LOW_WATER,
   CHUNK_SIZE,
+  MIN_CHUNK_SIZE,
+  PROGRESS_INTERVAL_MS,
+  READ_BLOCK_SIZE,
   type RTCIceServerConfig,
   type TransferMessage,
 } from '../shared/protocol.js';
+
+/**
+ * Rate-limits a callback. Progress fires once per message, which at full speed
+ * is thousands of times a second; every one of those drives a style write and a
+ * layout in the UI, which competes with the transfer for the main thread. The
+ * caller reports every message, we forward a sample.
+ */
+function throttle<T>(intervalMs: number, fn: (value: T) => void): (value: T) => void {
+  let last = 0;
+  return (value: T) => {
+    const now = performance.now();
+    if (now - last < intervalMs) return;
+    last = now;
+    fn(value);
+  };
+}
 
 /**
  * Wraps RTCPeerConnection with the bookkeeping every WebRTC app ends up
@@ -89,6 +108,7 @@ export class FileSender {
     private readonly dc: RTCDataChannel,
     private readonly files: Map<string, File>,
     private readonly onProgress: (p: SendProgress) => void,
+    private readonly pc?: RTCPeerConnection,
   ) {
     this.dc.bufferedAmountLowThreshold = BUFFER_LOW_WATER;
     this.dc.addEventListener('message', (ev) => {
@@ -114,14 +134,37 @@ export class FileSender {
     if (this.dc.readyState === 'open') this.dc.send(JSON.stringify(msg));
   }
 
+  /** Resolves once the send buffer has room again - or the channel goes away,
+   *  which would otherwise wedge the send queue for every later file. */
   private drain(): Promise<void> {
     return new Promise((resolvePromise) => {
-      const onLow = () => {
-        this.dc.removeEventListener('bufferedamountlow', onLow);
+      const done = () => {
+        this.dc.removeEventListener('bufferedamountlow', done);
+        this.dc.removeEventListener('close', done);
+        this.dc.removeEventListener('error', done);
         resolvePromise();
       };
-      this.dc.addEventListener('bufferedamountlow', onLow);
+      this.dc.addEventListener('bufferedamountlow', done);
+      this.dc.addEventListener('close', done);
+      this.dc.addEventListener('error', done);
     });
+  }
+
+  /**
+   * Largest message this pair actually agreed on. Going over it makes send()
+   * throw and takes the channel down with it, so read the negotiated value
+   * where the browser exposes it and only fall back to the universally
+   * supported size when it does not.
+   */
+  private chunkSize(): number {
+    const negotiated = this.pc?.sctp?.maxMessageSize ?? 0;
+    if (!negotiated || !Number.isFinite(negotiated)) return CHUNK_SIZE;
+    return Math.max(MIN_CHUNK_SIZE, Math.min(CHUNK_SIZE, negotiated));
+  }
+
+  /** One disk read. Kept separate so the caller can start the next one early. */
+  private readBlock(file: File, start: number): Promise<ArrayBuffer> {
+    return file.slice(start, Math.min(start + READ_BLOCK_SIZE, file.size)).arrayBuffer();
   }
 
   private async sendFile(reqId: string, fileId: string): Promise<void> {
@@ -136,26 +179,47 @@ export class FileSender {
       name: file.name, size: file.size, type: file.type,
     });
 
+    const chunkSize = this.chunkSize();
+    const report = throttle(PROGRESS_INTERVAL_MS, this.onProgress);
+
+    // Keep one block's read in flight while the previous block goes out, so
+    // disk latency overlaps the network rather than adding to it. Reading a
+    // block at a time - instead of a message at a time - also means peak
+    // memory stays flat no matter how large the file is.
     let offset = 0;
-    while (offset < file.size) {
-      if (this.cancelled.has(reqId)) {
-        this.cancelled.delete(reqId);
-        return;
+    let inFlight: Promise<ArrayBuffer> | null =
+      file.size > 0 ? this.readBlock(file, 0) : null;
+
+    while (inFlight) {
+      const block = new Uint8Array(await inFlight);
+      const blockStart = offset;
+      const nextStart = blockStart + block.byteLength;
+      inFlight = nextStart < file.size ? this.readBlock(file, nextStart) : null;
+      if (block.byteLength === 0) break;
+
+      for (let start = 0; start < block.byteLength; start += chunkSize) {
+        if (this.cancelled.has(reqId)) {
+          this.cancelled.delete(reqId);
+          return;
+        }
+        if (this.dc.readyState !== 'open') return;
+
+        if (this.dc.bufferedAmount > BUFFER_HIGH_WATER) {
+          await this.drain();
+          if (this.dc.readyState !== 'open') return;
+        }
+
+        const end = Math.min(start + chunkSize, block.byteLength);
+        // send() copies, so handing it a view into the block is safe and saves
+        // allocating a fresh buffer per message.
+        this.dc.send(block.subarray(start, end));
+        offset = blockStart + end;
+        report({ fileId, name: file.name, sent: offset, total: file.size });
       }
-      if (this.dc.readyState !== 'open') return;
-
-      if (this.dc.bufferedAmount > BUFFER_HIGH_WATER) await this.drain();
-
-      // Reading a slice at a time keeps peak memory at one chunk regardless of
-      // how large the file is - a 50 GB file is no different from a 5 MB one.
-      const chunk = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
-      if (this.dc.readyState !== 'open') return;
-      this.dc.send(chunk);
-      offset += chunk.byteLength;
-
-      this.onProgress({ fileId, name: file.name, sent: offset, total: file.size });
     }
 
+    // The throttle may have swallowed the last sample; completion must land.
+    this.onProgress({ fileId, name: file.name, sent: file.size, total: file.size });
     this.reply({ t: 'end', reqId });
   }
 }
@@ -192,10 +256,14 @@ export class FileReceiver {
    */
   private chain: Promise<void> = Promise.resolve();
 
+  /** Sampled progress. Completion is reported separately and always fires. */
+  private readonly report: (d: ActiveDownload) => void;
+
   constructor(
     private readonly dc: RTCDataChannel,
     private readonly onProgress: (d: ActiveDownload) => void,
   ) {
+    this.report = throttle(PROGRESS_INTERVAL_MS, onProgress);
     this.dc.binaryType = 'arraybuffer';
     this.dc.addEventListener('message', (ev) => {
       this.chain = this.chain.then(() => this.handleMessage(ev)).catch(() => undefined);
@@ -258,6 +326,7 @@ export class FileReceiver {
         const pending = this.pendingSinks.get(msg.reqId);
         if (!pending || !this.active || this.active.reqId !== msg.reqId) return;
         await this.active.sink.close();
+        this.onProgress(this.active);
         this.pendingSinks.delete(msg.reqId);
         this.active = null;
         pending.resolve();
@@ -281,7 +350,7 @@ export class FileReceiver {
     const chunk = ev.data as ArrayBuffer;
     await active.sink.write(chunk);
     active.received += chunk.byteLength;
-    this.onProgress(active);
+    this.report(active);
   }
 }
 
