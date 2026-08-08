@@ -102,24 +102,32 @@ export const MIN_CHUNK_SIZE = 64 * 1024;
  * message. The sender keeps one block read in flight while sending the
  * previous one, so disk latency overlaps the network instead of adding to it.
  */
-export const READ_BLOCK_SIZE = 4 * 1024 * 1024;
+export const READ_BLOCK_SIZE = 8 * 1024 * 1024;
 
-/** Stop reading from disk once this much is queued in the data channel. */
-export const BUFFER_HIGH_WATER = 8 * 1024 * 1024;
+/**
+ * Stop reading from disk once this much is queued in the data channel.
+ *
+ * Chrome tears the channel down if the outgoing buffer ever passes 16 MiB, and
+ * we test this before queueing one more message, so the true peak is this plus
+ * one message. 12 MiB leaves a wide margin while giving the link about a
+ * quarter of a second of runway at 50 MB/s - enough that a slow disk read can
+ * never leave the channel with nothing to send.
+ */
+export const BUFFER_HIGH_WATER = 12 * 1024 * 1024;
 /**
  * Resume reading once the queue drains below this. Deliberately not near zero:
  * the send buffer must still hold data while we go get more, or the link goes
  * idle every time we refill and throughput collapses to one block per round
  * trip.
  */
-export const BUFFER_LOW_WATER = 2 * 1024 * 1024;
+export const BUFFER_LOW_WATER = 4 * 1024 * 1024;
 
 /**
  * How many bytes the receiver may hold between the data channel and the disk.
  * Without a real window here the stream defaults to a single chunk, which
  * serialises every chunk behind a page-to-service-worker round trip.
  */
-export const RECEIVE_HIGH_WATER = 8 * 1024 * 1024;
+export const RECEIVE_HIGH_WATER = 16 * 1024 * 1024;
 
 /** Progress callbacks are sampled at this interval rather than fired per chunk. */
 export const PROGRESS_INTERVAL_MS = 100;

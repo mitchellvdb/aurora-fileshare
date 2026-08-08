@@ -19,9 +19,20 @@ export interface TransportInfo {
   local: CandidateKind;
   remote: CandidateKind;
   relayed: boolean;
+  /**
+   * The addresses ICE actually chose. Worth surfacing: a machine with Wi-Fi,
+   * Ethernet, a VPN and a container bridge offers several routes, and the pair
+   * that wins the connectivity check is the one that answered first, not the
+   * one with the most bandwidth.
+   */
+  localAddress?: string;
+  remoteAddress?: string;
+  protocol?: string;
   /** The browser's own estimate of what the path will carry, bits per second. */
   availableOutgoingBitrate?: number;
   roundTripMs?: number;
+  /** Averaged over the whole connection, so it predates any congestion. */
+  meanRoundTripMs?: number;
 }
 
 export interface SendStats {
@@ -30,6 +41,8 @@ export interface SendStats {
   bytesPerSecond: number;
   /** Share of sends that found the outgoing buffer nearly drained. */
   starvedPercent: number;
+  /** Message size actually used, after clamping to what the peers negotiated. */
+  messageBytes: number;
 }
 
 function kindOf(value: unknown): CandidateKind {
@@ -72,17 +85,33 @@ export async function describeTransport(pc: RTCPeerConnection): Promise<Transpor
   }
   if (!pair) return null;
 
-  const local = kindOf(get(pair['localCandidateId'])?.['candidateType']);
-  const remote = kindOf(get(pair['remoteCandidateId'])?.['candidateType']);
+  const localCandidate = get(pair['localCandidateId']);
+  const remoteCandidate = get(pair['remoteCandidateId']);
+  const local = kindOf(localCandidate?.['candidateType']);
+  const remote = kindOf(remoteCandidate?.['candidateType']);
   const bitrate = pair['availableOutgoingBitrate'];
   const rtt = pair['currentRoundTripTime'];
+  const totalRtt = pair['totalRoundTripTime'];
+  const responses = pair['responsesReceived'];
+  const text = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.length > 0 ? value : undefined;
+
+  const localAddress = text(localCandidate?.['address']);
+  const remoteAddress = text(remoteCandidate?.['address']);
+  const protocol = text(localCandidate?.['protocol']);
 
   return {
     local,
     remote,
     relayed: local === 'relay' || remote === 'relay',
+    ...(localAddress ? { localAddress } : {}),
+    ...(remoteAddress ? { remoteAddress } : {}),
+    ...(protocol ? { protocol } : {}),
     ...(typeof bitrate === 'number' ? { availableOutgoingBitrate: bitrate } : {}),
     ...(typeof rtt === 'number' ? { roundTripMs: rtt * 1000 } : {}),
+    ...(typeof totalRtt === 'number' && typeof responses === 'number' && responses > 0
+      ? { meanRoundTripMs: (totalRtt / responses) * 1000 }
+      : {}),
   };
 }
 
@@ -115,14 +144,25 @@ export function summarise(stats: SendStats, transport: TransportInfo | null): st
   const lines = [
     `Transfer: ${mbps} MB/s (${(stats.bytesPerSecond * 8 / 1e6).toFixed(0)} Mbit/s) over ${stats.seconds.toFixed(1)}s`,
     `Send buffer starved on ${stats.starvedPercent}% of writes`,
+    `Message size: ${(stats.messageBytes / 1024).toFixed(0)} KiB`,
   ];
   if (transport) {
-    lines.push(`Path: ${transport.local} ↔ ${transport.remote}${transport.relayed ? ' (relayed)' : ' (direct)'}`);
+    const route = transport.localAddress && transport.remoteAddress
+      ? ` via ${transport.localAddress} -> ${transport.remoteAddress}${transport.protocol ? ` (${transport.protocol})` : ''}`
+      : '';
+    lines.push(`Path: ${transport.local} ↔ ${transport.remote}${transport.relayed ? ' (relayed)' : ' (direct)'}${route}`);
     if (transport.availableOutgoingBitrate !== undefined) {
       lines.push(`Browser estimate of available upload: ${(transport.availableOutgoingBitrate / 1e6).toFixed(0)} Mbit/s`);
     }
     if (transport.roundTripMs !== undefined) {
-      lines.push(`Round trip: ${transport.roundTripMs.toFixed(0)} ms`);
+      const mean = transport.meanRoundTripMs;
+      // A round trip well above the connection's own average means packets are
+      // queueing somewhere - the signature of a congested link, and the case
+      // where splitting across several connections would actually pay off.
+      const drift = mean !== undefined && mean > 0 && transport.roundTripMs > mean * 2
+        ? ` - ${(transport.roundTripMs / mean).toFixed(1)}x the ${mean.toFixed(0)} ms average, so the link is congesting`
+        : mean !== undefined ? ` (${mean.toFixed(0)} ms average)` : '';
+      lines.push(`Round trip: ${transport.roundTripMs.toFixed(0)} ms${drift}`);
     }
   }
   lines.push(explain(stats, transport));

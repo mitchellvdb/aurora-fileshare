@@ -165,6 +165,33 @@ export class FileSender {
   }
 
   /**
+   * Waits until the channel has actually handed everything to the network.
+   *
+   * send() only queues, so without this a file smaller than the outgoing
+   * buffer looks instantaneous and the reported rate is nonsense - it would be
+   * measuring how fast we can fill a buffer, not how fast the link drains it.
+   */
+  private flush(): Promise<void> {
+    if (this.dc.bufferedAmount === 0 || this.dc.readyState !== 'open') {
+      return Promise.resolve();
+    }
+    const previous = this.dc.bufferedAmountLowThreshold;
+    this.dc.bufferedAmountLowThreshold = 0;
+    return new Promise((resolvePromise) => {
+      const done = () => {
+        this.dc.removeEventListener('bufferedamountlow', done);
+        this.dc.removeEventListener('close', done);
+        this.dc.removeEventListener('error', done);
+        this.dc.bufferedAmountLowThreshold = previous;
+        resolvePromise();
+      };
+      this.dc.addEventListener('bufferedamountlow', done);
+      this.dc.addEventListener('close', done);
+      this.dc.addEventListener('error', done);
+    });
+  }
+
+  /**
    * Largest message this pair actually agreed on. Going over it makes send()
    * throw and takes the channel down with it, so read the negotiated value
    * where the browser exposes it and only fall back to the universally
@@ -239,12 +266,15 @@ export class FileSender {
       }
     }
 
+    // Everything is queued; the transfer is not finished until it is drained.
+    await this.flush();
     const seconds = (performance.now() - startedAt) / 1000;
     this.lastStats = {
       bytes: file.size,
       seconds,
       bytesPerSecond: seconds > 0 ? file.size / seconds : 0,
       starvedPercent: this.sends > 0 ? Math.round((this.starvedSends / this.sends) * 100) : 0,
+      messageBytes: chunkSize,
     };
 
     // The throttle may have swallowed the last sample; completion must land.

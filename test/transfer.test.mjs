@@ -129,9 +129,21 @@ try {
   check('diagnostics include a starvation figure',
     /Send buffer starved on \d+% of writes/.test(diag ?? ''),
     (diag ?? '').match(/Send buffer starved on \d+% of writes/)?.[0]);
+  check('diagnostics report the negotiated message size',
+    /Message size: \d+ KiB/.test(diag ?? ''),
+    (diag ?? '').match(/Message size: \d+ KiB/)?.[0]);
   check('diagnostics name the path',
     /Path: \w+ . \w+ \((direct|relayed)\)/.test(diag ?? ''),
     (diag ?? '').match(/Path: .*/)?.[0]);
+  // The sender times its own transfer; the harness times the whole exchange
+  // independently. They should broadly agree. They did not before the sender
+  // learned to wait for the buffer to drain: a file smaller than the outgoing
+  // buffer was reported as having gone thirty times faster than it had.
+  const claimed = Number((diag ?? '').match(/Transfer: ([\d.]+) MB\/s/)?.[1] ?? 0);
+  const measured = SIZE / elapsed / (1024 * 1024);
+  check('reported rate agrees with the measured rate',
+    claimed > 0 && claimed < measured * 2,
+    `sender says ${claimed.toFixed(1)} MB/s, harness measured ${measured.toFixed(1)} MB/s`);
   check('diagnostics reach a verdict',
     /Limited by/.test(diag ?? ''),
     (diag ?? '').match(/Limited by[^\n]*/)?.[0]);
