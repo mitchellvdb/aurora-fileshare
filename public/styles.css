@@ -8,7 +8,8 @@
  *
  * Fonts are self-hosted. Both families are single variable files, so one face
  * per family covers every weight the design uses, and the strict CSP needs no
- * third-party origin.
+ * third-party origin. Both are SIL Open Font License 1.1; the licence travels
+ * with them in /fonts/ as the OFL requires. See public/fonts/README.txt.
  */
 
 @font-face {
