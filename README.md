@@ -203,4 +203,20 @@ is exactly what the peer-to-peer design otherwise avoids.
 
 ## License
 
-MIT.
+The code is MIT — see [LICENSE](LICENSE). `package.json` has always declared
+`"license": "MIT"`; this just gives that declaration a file to point at.
+
+Two things in this repository are **not** covered by it, so a blanket "all MIT"
+claim would be wrong:
+
+- **The bundled fonts.** `public/fonts/` ships Archivo and JetBrains Mono as
+  WOFF2. Both are SIL Open Font License 1.1 and stay that way — the OFL does not
+  permit relicensing font software. Their licenses sit beside them, which is
+  what the OFL asks of anyone redistributing them. See
+  [public/fonts/README.txt](public/fonts/README.txt).
+- **Runtime dependencies.** `ws` and `qrcode-generator` carry their own terms
+  (both MIT at the time of writing).
+
+Nothing here derives from FilePizza. This is an independent implementation of
+the same idea, which is not something copyright reaches; FilePizza's own code is
+BSD 3-Clause and none of it is used.
