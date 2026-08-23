@@ -96,6 +96,35 @@ function extractLd(html) {
     .map((m) => JSON.parse(m[1]));
 }
 {
+  // --- Social preview cards -------------------------------------------------
+  // A link pasted into a chat is how this tool spreads, so a missing image here
+  // costs more than it would on an ordinary site.
+  {
+    const homeHtml = await get('/');
+    const shareHtml = await get('/d/swift-otter-100');
+    const img = (h) => /<meta property="og:image" content="([^"]+)"/.exec(h)?.[1] ?? '';
+    const card = (h) => /<meta name="twitter:card" content="([^"]+)"/.exec(h)?.[1] ?? '';
+
+    check('home has an og:image', img(homeHtml).length > 0, img(homeHtml));
+    check('og:image is absolute', img(homeHtml).startsWith('http'), img(homeHtml));
+    check('og:image declares its dimensions',
+      homeHtml.includes('og:image:width" content="1200"')
+      && homeHtml.includes('og:image:height" content="630"'));
+    check('twitter card is the large variant',
+      card(homeHtml) === 'summary_large_image', card(homeHtml));
+    check('share pages get their own card',
+      img(shareHtml).includes('og-share') && img(homeHtml).includes('og-default'),
+      `${img(shareHtml).split('/').pop()} vs ${img(homeHtml).split('/').pop()}`);
+
+    const res = await fetch(img(homeHtml).replace(/^https?:\/\/[^/]+/, ORIGIN));
+    check('the card actually resolves',
+      res.ok && res.headers.get('content-type') === 'image/png',
+      `${res.status} ${res.headers.get('content-type')}`);
+    check('cards are cached forever',
+      /immutable/.test(res.headers.get('cache-control') ?? ''),
+      res.headers.get('cache-control'));
+  }
+
   const home = extractLd(await get('/'));
   check('home: one structured data block', home.length === 1, String(home.length));
   check('home: describes a WebApplication', home[0]?.['@type'] === 'WebApplication', home[0]?.['@type']);

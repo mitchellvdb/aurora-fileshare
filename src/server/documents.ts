@@ -76,6 +76,16 @@ async function assetManifest(publicRoot: string): Promise<Record<string, string>
   }
 }
 
+/** Social preview cards, written by scripts/build-og.mjs. */
+async function ogManifest(publicRoot: string): Promise<Record<string, string>> {
+  try {
+    return JSON.parse(await readFile(join(publicRoot, 'og/manifest.json'), 'utf8'));
+  } catch {
+    console.warn('[aurora-fileshare] no social cards built; previews will be text only');
+    return {};
+  }
+}
+
 function applyManifest(html: string, manifest: Record<string, string>): string {
   let out = html;
   for (const [logical, hashed] of Object.entries(manifest)) {
@@ -91,6 +101,7 @@ function scriptHash(content: string): string {
 
 export async function loadDocuments(publicRoot: string): Promise<void> {
   const manifest = await assetManifest(publicRoot);
+  const cards = await ogManifest(publicRoot);
   const donate = donateMeta();
   const publicUrl = config.publicUrl;
 
@@ -101,7 +112,10 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
 
   for (const [name, page] of Object.entries(PAGES)) {
     const source = await readFile(join(publicRoot, name), 'utf8');
-    const head: string[] = [metaTagsFor(page, publicUrl), donate];
+    // Share pages get their own card: that link is the one people actually
+    // paste into a chat, so it is the most-seen preview on the site.
+    const card = cards[page.noindex ? 'share' : 'default'] ?? '';
+    const head: string[] = [metaTagsFor(page, publicUrl, card), donate];
     const hashes: string[] = [];
 
     const structured = name === 'faq.html'

@@ -15,7 +15,8 @@
     "dev": "node scripts/build-client.mjs --watch & tsc -p tsconfig.server.json --watch --preserveWatchOutput & node --watch dist/server/index.js",
     "start": "node dist/server/index.js",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json && tsc -p tsconfig.sw.json",
-    "test": "node test/run.mjs"
+    "test": "node test/run.mjs",
+    "build:og": "node scripts/build-og.mjs"
   },
   "dependencies": {
     "qrcode-generator": "^2.0.4",

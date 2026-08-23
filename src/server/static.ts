@@ -85,7 +85,9 @@ export async function serveFile(
   // carry the same content hash and are just as safe to pin forever.
   const hashed = /\.[A-Za-z0-9]{8}\./.test(relPath);
   const immutable = hashed
-    && (relPath.startsWith('/build/') || relPath.startsWith('/fonts/'));
+    && (relPath.startsWith('/build/')
+      || relPath.startsWith('/fonts/')
+      || relPath.startsWith('/og/'));
   res.setHeader('Cache-Control', immutable
     ? 'public, max-age=31536000, immutable'
     : 'no-cache');

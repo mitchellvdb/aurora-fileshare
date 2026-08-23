@@ -59,7 +59,7 @@ function jsonLd(data: unknown): string {
     .replace(/&/g, '\\u0026');
 }
 
-export function metaTagsFor(page: PageSeo, publicUrl: string): string {
+export function metaTagsFor(page: PageSeo, publicUrl: string, imageUrl = ''): string {
   const canonical = publicUrl ? new URL(page.path, publicUrl).toString() : '';
   const tags: string[] = [];
 
@@ -77,11 +77,26 @@ export function metaTagsFor(page: PageSeo, publicUrl: string): string {
     '<meta property="og:site_name" content="Aurora FileShare">',
     `<meta property="og:title" content="${escapeAttribute(page.title)}">`,
     `<meta property="og:description" content="${escapeAttribute(page.description)}">`,
-    '<meta name="twitter:card" content="summary">',
+    // summary_large_image only renders large if an image is actually supplied;
+    // without one the card silently degrades to a cramped text stub.
+    `<meta name="twitter:card" content="${imageUrl ? 'summary_large_image' : 'summary'}">`,
     `<meta name="twitter:title" content="${escapeAttribute(page.title)}">`,
     `<meta name="twitter:description" content="${escapeAttribute(page.description)}">`,
   );
   if (canonical) tags.push(`<meta property="og:url" content="${escapeAttribute(canonical)}">`);
+
+  // Crawlers fetch this server-side, so it needs an absolute URL and is not
+  // subject to the page's own img-src policy.
+  if (imageUrl && publicUrl) {
+    const absolute = new URL(imageUrl, publicUrl).toString();
+    tags.push(
+      `<meta property="og:image" content="${escapeAttribute(absolute)}">`,
+      '<meta property="og:image:width" content="1200">',
+      '<meta property="og:image:height" content="630">',
+      `<meta property="og:image:alt" content="${escapeAttribute(page.title)}">`,
+      `<meta name="twitter:image" content="${escapeAttribute(absolute)}">`,
+    );
+  }
 
   return tags.join('');
 }
