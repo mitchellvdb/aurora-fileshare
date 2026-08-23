@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send large files without an account — Aurora FileShare</title>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Guide</p>
+  <h1>Send large files without an account.</h1>
+  <p class="lede">
+    Most transfer services want you to sign up before they will move anything
+    substantial. Here is why, what a free tier usually means, and how a transfer
+    that never touches a server avoids the question entirely.
+  </p>
+
+  <article class="card prose">
+    <h2>Why transfer services have limits at all</h2>
+    <p>
+      When you upload a file to a transfer service, that file has to live
+      somewhere. A copy sits on a disk in a data centre from the moment your
+      upload finishes until the moment it expires. Someone pays for that disk,
+      for the bandwidth in, for the bandwidth out again, and for keeping the
+      whole arrangement running.
+    </p>
+    <p>
+      That cost scales with size and with time. A service that let anonymous
+      visitors park fifty gigabytes indefinitely, for nothing, would be paying
+      real money for every stranger who passed through. So limits appear — not
+      out of meanness, but because storage is the product and the product costs
+      money.
+    </p>
+    <p>
+      Nearly every restriction you meet on a free tier traces back to that one
+      fact.
+    </p>
+
+    <h2>The usual shape of a free tier</h2>
+    <p>
+      The specifics vary between services, but the patterns repeat:
+    </p>
+    <ul>
+      <li>
+        <strong>A size ceiling.</strong> Free transfers commonly stop after a
+        few gigabytes. That is roughly where storage cost stops being a rounding
+        error.
+      </li>
+      <li>
+        <strong>An expiry window.</strong> Links often die after a few days.
+        The shorter the window, the less disk is occupied at any moment — it is
+        a cost control before it is a feature.
+      </li>
+      <li>
+        <strong>An account wall.</strong> Larger transfers, longer expiry and
+        repeat use tend to require registration. An account gives the service
+        something durable to attach usage to, and an address to reach you at
+        later.
+      </li>
+      <li>
+        <strong>A retention policy that is not quite deletion.</strong> "Deleted
+        after seven days" usually describes the download link. Backups and logs
+        may follow their own schedule. This is normal and generally disclosed —
+        it is just worth reading rather than assuming.
+      </li>
+    </ul>
+    <p>
+      None of that is dishonest. It is the arithmetic of storing other people's
+      data. But it does mean "free" often describes a trial of a paid product
+      rather than a complete one.
+    </p>
+
+    <h2>The other approach: do not store it</h2>
+    <p>
+      There is a second way to move a file, which sidesteps the arithmetic
+      rather than paying it.
+    </p>
+    <p>
+      Two browsers can connect directly to one another. Once they have, the
+      bytes travel from one machine to the other without passing through
+      anything in between. Nothing is uploaded, because there is nowhere to
+      upload it to.
+    </p>
+    <p>
+      A server is still involved, but only briefly, and only to introduce the
+      two browsers to each other — passing along the connection details each one
+      needs in order to find the other. That step is called signalling. It moves
+      a few kilobytes and then steps out of the way. It never receives the file.
+    </p>
+    <p>
+      That is how <a href="/">Aurora FileShare</a> works, and it is why there is
+      no size limit: there is no storage quota to hit, because there is no
+      storage.
+    </p>
+
+    <h2>What that changes, and what it costs</h2>
+    <p>
+      The advantages follow directly. There is no upload step, so a large
+      transfer starts moving immediately instead of after an hour of waiting.
+      There is no size ceiling. There is no account, because there is nothing to
+      attach one to. There is no retention policy, because once the transfer
+      finishes the only copies that exist are the sender's original and the
+      recipient's download.
+    </p>
+    <p>
+      The trade-offs follow just as directly, and they are real:
+    </p>
+    <ul>
+      <li>
+        <strong>Both people have to be online at once.</strong> The sender's
+        device is the source. This is a transfer, not a drop box — you cannot
+        send a file to someone who is asleep and have it waiting for them.
+      </li>
+      <li>
+        <strong>The sender keeps a tab open.</strong> Closing it ends the share,
+        the same way unplugging a server would.
+      </li>
+      <li>
+        <strong>Some networks refuse the direct route.</strong> Restrictive
+        corporate and mobile networks can block it in a way the browser cannot
+        work around. If both ends are on such a network the transfer cannot
+        start; moving either end to a different connection usually fixes it.
+      </li>
+    </ul>
+    <p>
+      If you need a file to sit somewhere and wait, a storage-based service is
+      the right tool, and its limits are the honest price of that. If you need
+      to hand something large to a person who is there now, not storing it is
+      faster and cheaper for everyone involved.
+    </p>
+
+    <h2>What to check before trusting any transfer service</h2>
+    <p>
+      Whichever kind you use, the same few questions tell you most of what you
+      need to know:
+    </p>
+    <ul>
+      <li>
+        <strong>Where does the file physically go, and for how long?</strong> A
+        specific answer is a good sign. Vagueness is not.
+      </li>
+      <li>
+        <strong>Encrypted to whom?</strong> "Encrypted" frequently means
+        encrypted between you and the server — which still leaves the server
+        able to read it. End to end means something stronger.
+      </li>
+      <li>
+        <strong>What is recorded?</strong> Almost everything records something.
+        The useful question is what, and for how long.
+      </li>
+      <li>
+        <strong>Is the free tier complete, or a trial?</strong> The two look
+        identical on a landing page.
+      </li>
+    </ul>
+    <p>
+      Our own answers are on the <a href="/faq">FAQ</a>, including the less
+      flattering parts: the server does briefly hold file names and sizes in
+      memory, and it does see the IP addresses connecting to it, as any web
+      server does. We would rather write that down than round it off to
+      "nothing".
+    </p>
+  </article>
+
+  <section class="steps">
+    <h2>Try it</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <p class="step-n">01</p>
+        <p><a href="/">Pick your files</a> — they stay on your device.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">02</p>
+        <p>Send the link you get back to whoever needs them.</p>
+      </div>
+      <div class="step">
+        <p class="step-n">03</p>
+        <p>The transfer runs browser to browser, encrypted, at whatever speed your connections allow.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="ftr-row">
+    <a href="/">Send a file</a>
+    <a href="/faq">Documentation &amp; FAQ</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
+
+</div>
+<script type="module" src="/build/faq.js"></script>
+</body>
+</html>

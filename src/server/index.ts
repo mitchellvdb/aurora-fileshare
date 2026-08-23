@@ -64,6 +64,9 @@ const server = createServer(async (req, res) => {
   if (path === '/' || path === '/index.html') {
     if (serveDocument('index.html', req, res)) return;
   }
+  if (path === '/send-large-files' || path === '/send-large-files.html') {
+    if (serveDocument('send-large-files.html', req, res)) return;
+  }
   if (path === '/faq' || path === '/faq.html' || path === '/docs') {
     if (serveDocument('faq.html', req, res)) return;
   }

@@ -31,6 +31,13 @@ export const PAGES: Record<string, PageSeo> = {
       'How Aurora FileShare sends files peer to peer without uploading them: '
       + 'size limits, privacy, passwords, expiry, browser support and troubleshooting.',
   },
+  'send-large-files.html': {
+    path: '/send-large-files',
+    title: 'Send large files without an account — Aurora FileShare',
+    description:
+      'Why transfer services impose size limits and account walls, what a free '
+      + 'tier usually means, and how a browser-to-browser transfer avoids both.',
+  },
   'download.html': {
     path: '/d/',
     title: 'Incoming files — Aurora FileShare',
