@@ -62,6 +62,9 @@ export const config = {
    * Buy Me a Coffee, Ko-fi, Stripe. Left empty the button never renders, so
    * there is no half-configured dead link to click.
    */
+  // Where the source lives. AGPL section 13 asks anyone running this over a
+  // network to offer its source to the people using it; a footer link is how.
+  sourceUrl: (process.env['SOURCE_URL'] ?? '').trim(),
   donateUrl: (process.env['DONATE_URL'] ?? '').trim(),
   donateLabel: (process.env['DONATE_LABEL'] ?? 'Buy me a coffee').trim(),
 

@@ -54,6 +54,17 @@ function safeUrl(raw: string): string | null {
   return parsed.toString();
 }
 
+/**
+ * The footer's source link. Rendered server-side rather than by script so it
+ * is in the initial HTML: a licence obligation should not depend on JavaScript
+ * running. Empty when SOURCE_URL is unset, which leaves no placeholder behind.
+ */
+function sourceLink(): string {
+  const url = safeUrl(config.sourceUrl);
+  if (!url) return '';
+  return `<a href="${escapeAttribute(url)}">Source</a>`;
+}
+
 function donateMeta(): string {
   const donateUrl = safeUrl(config.donateUrl);
   if (!donateUrl) return '';
@@ -128,7 +139,8 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
     }
 
     const html = applyManifest(source, manifest)
-      .replace('</head>', `${head.filter(Boolean).join('')}</head>`);
+      .replace('</head>', `${head.filter(Boolean).join('')}</head>`)
+      .split('<!--source-link-->').join(sourceLink());
     const buffer = Buffer.from(html, 'utf8');
 
     documents.set(name, {
