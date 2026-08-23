@@ -64,6 +64,20 @@ await withServer({ SOURCE_URL: REPO }, async (origin) => {
   check('link is in the initial HTML, not added by script',
     home.indexOf('Source</a>') < home.indexOf('</body>'));
   check('no placeholder survives', !home.includes('<!--source-link-->'));
+
+  // The FAQ's self-hosting answer, and the structured data derived from it.
+  const faq = await get(origin, '/faq');
+  check('faq points at the repository',
+    faq.includes(`<a href="${REPO}">source code is public</a>`));
+
+  const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(faq)?.[1] ?? '';
+  const answers = JSON.parse(ld).mainEntity
+    .map((e) => e.acceptedAnswer.text).join(' ');
+  check('structured data carries the resolved sentence',
+    answers.includes('source code is public') && answers.includes('AGPL'));
+  check('structured data has no placeholder or markup',
+    !answers.includes('source-sentence') && !answers.includes('<a href'),
+    answers.slice(answers.indexOf('source code') - 40, answers.indexOf('source code') + 60));
 });
 
 // --- Unset ------------------------------------------------------------------
@@ -75,6 +89,17 @@ await withServer({ SOURCE_URL: '' }, async (origin) => {
   }
   // A visible placeholder comment would be a worse outcome than no link at all.
   check('nothing rendered and no placeholder leaks', leaked.length === 0, leaked.join(', '));
+
+  const faq = await get(origin, '/faq');
+  check('faq falls back to the ask-us wording',
+    faq.includes('Ask and we will point you at it.')
+    && !faq.includes('<!--source-sentence-->'));
+
+  const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(faq)?.[1] ?? '';
+  const answers = JSON.parse(ld).mainEntity.map((e) => e.acceptedAnswer.text).join(' ');
+  check('structured data carries the fallback, not a placeholder',
+    answers.includes('Ask and we will point you at it')
+    && !answers.includes('source-sentence'));
 });
 
 // --- Hostile value ----------------------------------------------------------

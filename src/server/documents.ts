@@ -65,6 +65,30 @@ function sourceLink(): string {
   return `<a href="${escapeAttribute(url)}">Source</a>`;
 }
 
+/**
+ * The self-hosting answer in the FAQ, which depends on whether there is
+ * anywhere to point people at. Stripped of its tags this still reads as a
+ * sentence, which matters: the FAQ's answers become structured data.
+ */
+function sourceSentence(): string {
+  const url = safeUrl(config.sourceUrl);
+  if (!url) return 'Ask and we will point you at it.';
+  return `The <a href="${escapeAttribute(url)}">source code is public</a>, under `
+    + 'the AGPL — so if you run a modified copy as a public service, you will '
+    + 'need to publish your changes.';
+}
+
+/**
+ * Body substitutions shared by every document. Applied to the FAQ before its
+ * answers are read for structured data, or a placeholder comment would end up
+ * inside the JSON-LD.
+ */
+function substitute(html: string): string {
+  return html
+    .split('<!--source-link-->').join(sourceLink())
+    .split('<!--source-sentence-->').join(sourceSentence());
+}
+
 function donateMeta(): string {
   const donateUrl = safeUrl(config.donateUrl);
   if (!donateUrl) return '';
@@ -118,7 +142,7 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
 
   // The FAQ's structured data is derived from the page's own markup, so the two
   // cannot disagree about what the answers say.
-  const faqSource = await readFile(join(publicRoot, 'faq.html'), 'utf8');
+  const faqSource = substitute(await readFile(join(publicRoot, 'faq.html'), 'utf8'));
   const faqEntries = extractFaq(faqSource);
 
   for (const [name, page] of Object.entries(PAGES)) {
@@ -138,9 +162,8 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
       hashes.push(scriptHash(structured));
     }
 
-    const html = applyManifest(source, manifest)
-      .replace('</head>', `${head.filter(Boolean).join('')}</head>`)
-      .split('<!--source-link-->').join(sourceLink());
+    const html = substitute(applyManifest(source, manifest))
+      .replace('</head>', `${head.filter(Boolean).join('')}</head>`);
     const buffer = Buffer.from(html, 'utf8');
 
     documents.set(name, {
