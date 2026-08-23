@@ -8,6 +8,43 @@ single byte of file content.
 
 Built for `fileshare.aurorahosting.nl`.
 
+## Screenshots
+
+Sending. Pick files, or drop them anywhere on the page — nothing is read until
+somebody asks for it.
+
+![The sender's landing page, with a drop zone for files](docs/screenshots/01-idle.png)
+
+You get a link and a QR code. The transfer starts when the other side opens it,
+and runs directly between the two browsers.
+
+![The sender's view: a share link, a QR code, and a completed transfer at 100%](docs/screenshots/05-sending.png)
+
+Receiving. Files can be taken one at a time, or as a single `.zip` assembled as
+the bytes arrive rather than buffered first.
+
+![The recipient's view, with one file complete and one ready to download](docs/screenshots/04-receiving.png)
+
+<details>
+<summary>More screens</summary>
+
+Files chosen, before the link is created:
+
+![The file list, showing two files and their total size](docs/screenshots/02-files-chosen.png)
+
+Waiting for the other side to open the link:
+
+![The share link with a pulsing indicator, waiting for a recipient](docs/screenshots/03-share-link.png)
+
+The documentation page:
+
+![The FAQ page](docs/screenshots/06-docs.png)
+
+</details>
+
+Regenerate them with `node test/screens.mjs`, which drives two real browsers
+through an actual transfer.
+
 ## Why this shape
 
 - **No storage, no size limit.** There is nothing to upload, so there is nothing
