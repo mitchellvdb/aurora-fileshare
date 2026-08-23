@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to send a 50 GB file for free — Aurora FileShare</title>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Guide</p>
+  <h1>How to send a 50&nbsp;GB file for free.</h1>
+  <p class="lede">
+    Fifty gigabytes is where most transfer services stop being free, and where
+    several stop working at all. Here is what actually goes wrong at that size,
+    and what to do instead.
+  </p>
+
+  <article class="card prose">
+    <h2>Fifty gigabytes is not just ten times five</h2>
+    <p>
+      A 5 GB transfer and a 50 GB transfer fail in different ways. The small one
+      is bounded by policy — some limit written into a pricing page. The large
+      one starts running into physics, and into how browsers and networks
+      actually behave over long periods.
+    </p>
+    <p>
+      Three things change at that size: the time the transfer occupies, the
+      memory it needs while in flight, and the number of chances it has to be
+      interrupted.
+    </p>
+
+    <h2>The upload arithmetic</h2>
+    <p>
+      On any service that stores your file, the bytes cross the network twice:
+      once from you up to the server, and once from the server down to whoever
+      you sent it to. Only the first leg runs on your upload connection, which
+      on most consumer lines is the far slower half.
+    </p>
+    <p>
+      What that means for 50 GB, before the recipient has downloaded anything at
+      all:
+    </p>
+    <ul>
+      <li>At <strong>10 Mbit/s</strong> upload — roughly <strong>11 hours</strong></li>
+      <li>At <strong>40 Mbit/s</strong> — roughly <strong>3 hours</strong></li>
+      <li>At <strong>100 Mbit/s</strong> — a little over <strong>an hour</strong></li>
+    </ul>
+    <p>
+      Those hours are the real cost of the upload step, and they are why "just
+      use a transfer site" stops being good advice somewhere around this size.
+      Your connection is occupied the whole time, and the recipient cannot begin
+      until you have finished.
+    </p>
+
+    <h2>What tends to break</h2>
+    <ul>
+      <li>
+        <strong>Memory.</strong> Tools that assemble a file in the browser before
+        saving it need to hold the whole thing in RAM. At 50 GB that simply
+        fails on most machines.
+      </li>
+      <li>
+        <strong>Interruptions.</strong> An eleven-hour upload has eleven hours in
+        which a laptop can sleep, a connection can drop, or a session can time
+        out. Without resumable uploads, an interruption at hour nine means
+        starting again.
+      </li>
+      <li>
+        <strong>Free-tier ceilings.</strong> Most stop well below this, so the
+        practical answer often becomes a subscription rather than a workaround.
+      </li>
+    </ul>
+
+    <h2>Sending it directly instead</h2>
+    <p>
+      The alternative is to skip the middle entirely. Two browsers connect to
+      each other and the file crosses the network <em>once</em>, from your
+      machine to theirs. There is no upload step to wait through, because there
+      is nothing to upload to — the recipient starts receiving as soon as they
+      open the link.
+    </p>
+    <p>
+      Speed then depends on the slower of the two connections and the route
+      between them, rather than on a service's capacity. For a concrete figure:
+      between two gigabit connections we measured about <strong>50 MB/s</strong>,
+      and a real 39 GB transfer finished in <strong>fifteen to twenty
+      minutes</strong>. Slower connections take proportionally longer, but the
+      shape holds — one leg instead of two.
+    </p>
+    <p>
+      <a href="/">Aurora FileShare</a> works this way, which is why it has no
+      size limit to quote. There is no storage quota to hit because nothing is
+      stored.
+    </p>
+
+    <h2>What you need for a transfer this size</h2>
+    <ul>
+      <li>
+        <strong>Both of you online at the same time.</strong> Your device is the
+        source, so the transfer happens while you are both there.
+      </li>
+      <li>
+        <strong>The sending tab left open.</strong> Closing it ends the share.
+      </li>
+      <li>
+        <strong>Free disk space on the receiving end.</strong> Fifty gigabytes has
+        to land somewhere.
+      </li>
+      <li>
+        <strong>A current browser over HTTPS.</strong> That allows the download to
+        stream straight to disk rather than being assembled in memory first,
+        which is the difference between a 50 GB file working and failing.
+      </li>
+    </ul>
+
+    <h2>When to do something else</h2>
+    <p>
+      Direct transfer is not always the right answer, and it is worth being
+      straight about when it is not:
+    </p>
+    <ul>
+      <li>
+        <strong>If the recipient is not available now</strong>, you need something
+        that holds the file and waits. That is what paid transfer tiers are for,
+        and the fee is the honest price of the disk.
+      </li>
+      <li>
+        <strong>If you are moving several terabytes</strong>, a physical disk in
+        the post is still faster than almost any connection.
+      </li>
+      <li>
+        <strong>If you need a link that keeps working for months</strong>, you want
+        hosting, not a transfer.
+      </li>
+    </ul>
+
+    <h2>The short version</h2>
+    <p>
+      Pick your files, send the link you get back, and keep the tab open while
+      the transfer runs. Nothing is uploaded first, so a 50 GB file starts
+      moving in the same second a 5 MB one would. If it is useful, the
+      <a href="/faq">FAQ</a> covers passwords, expiry and the cases where a
+      direct connection cannot be established.
+    </p>
+    <p>
+      Related: <a href="/send-large-files">sending large files without an
+      account</a> and <a href="/what-free-means">what "free" actually means on
+      file transfer sites</a>.
+    </p>
+  </article>
+</main>
+
+<footer>
+  <div class="ftr-row">
+    <a href="/">Send a file</a>
+    <a href="/faq">Documentation &amp; FAQ</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
+
+</div>
+<script type="module" src="/build/faq.js"></script>
+</body>
+</html>

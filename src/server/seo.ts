@@ -38,6 +38,22 @@ export const PAGES: Record<string, PageSeo> = {
       'Why transfer services impose size limits and account walls, what a free '
       + 'tier usually means, and how a browser-to-browser transfer avoids both.',
   },
+  'send-50gb-file.html': {
+    path: '/send-50gb-file',
+    title: 'How to send a 50 GB file for free — Aurora FileShare',
+    description:
+      'What actually goes wrong when you send 50 GB through a transfer service, '
+      + 'the upload arithmetic behind it, and how a direct browser-to-browser '
+      + 'transfer avoids the wait.',
+  },
+  'what-free-means.html': {
+    path: '/what-free-means',
+    title: 'What "free" actually means on file transfer sites — Aurora FileShare',
+    description:
+      'Every free service is funded by something. The four models behind a free '
+      + 'file transfer tier, how to tell which one you are using, and ours stated '
+      + 'plainly.',
+  },
   'download.html': {
     path: '/d/',
     title: 'Incoming files — Aurora FileShare',

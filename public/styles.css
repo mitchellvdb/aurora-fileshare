@@ -528,6 +528,15 @@ h1 {
 .step-n { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--accent); margin-bottom: 14px; }
 .step p { color: var(--muted); font-size: 14.5px; line-height: 1.65; }
 
+/* Prose inside a section rather than a card: used on the home page, where the
+   text has to earn its place without competing with the card above it. */
+.section-copy { max-width: 62ch; }
+.section-copy p { color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+.section-copy p + p { margin-top: 14px; }
+.section-links { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 20px; }
+.section-links a { font-size: 14px; color: var(--muted-2); }
+.section-links a:hover { color: var(--text); }
+
 /* --- Prose (FAQ) --------------------------------------------------------- */
 
 .prose { margin-top: clamp(32px, 5vw, 48px); }

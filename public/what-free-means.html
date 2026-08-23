@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What "free" actually means on file transfer sites — Aurora FileShare</title>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="page">
+<div class="aurora" aria-hidden="true"></div>
+<div class="aurora-fade" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
+  <div class="right">
+    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+    <span id="donate-slot" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Guide</p>
+  <h1>What "free" actually means on file transfer sites.</h1>
+  <p class="lede">
+    Every free service is paid for by something. Working out which model you are
+    using tells you what you are actually giving up in exchange.
+  </p>
+
+  <article class="card prose">
+    <h2>Free is a business model, not the absence of one</h2>
+    <p>
+      Storing a stranger's file costs money — the disk it occupies, the
+      bandwidth in, the bandwidth out again, and the staff keeping it running.
+      When a service does that without charging you, the money is arriving from
+      somewhere else. There are only a few places it usually comes from.
+    </p>
+
+    <h2>The four common models</h2>
+
+    <h3>1. The free tier as a trial</h3>
+    <p>
+      By far the most common. The free allowance is marketing spend: large
+      enough to prove the product works, small enough that anyone with a real
+      need runs into the edge of it. The size ceiling and the expiry window are
+      product decisions rather than technical ones — they are set where they
+      produce upgrades.
+    </p>
+    <p>
+      Nothing about this is underhanded. It is worth recognising for what it is,
+      though: you are not using a free product, you are using a demonstration of
+      a paid one.
+    </p>
+
+    <h3>2. Advertising</h3>
+    <p>
+      The service is funded by attention rather than subscriptions, which means
+      it needs to know things about visitors to sell that attention well. In
+      practice that means tracking scripts, cookies and some degree of
+      profile-building. Reasonable for a great many sites; worth a moment's
+      thought before routing something sensitive through one.
+    </p>
+
+    <h3>3. The metadata</h3>
+    <p>
+      Less common and usually described in the terms rather than on the landing
+      page. Even a service that never opens a file knows who sent it, roughly
+      how big it was, when, and to whom it went. That pattern has commercial
+      value on its own, independent of contents.
+    </p>
+
+    <h3>4. It genuinely costs almost nothing to run</h3>
+    <p>
+      This one is only available to a narrow set of designs. If a service never
+      stores your file, it never pays for the disk or the bandwidth that
+      dominate everyone else's costs — so there is very little to recover, and
+      no particular reason to put a meter on it.
+    </p>
+
+    <h2>Telling which one you are using</h2>
+    <ul>
+      <li>
+        <strong>Is there a paid tier?</strong> If so, every limit on the free one
+        is a deliberate choice about where to place the upgrade, not a law of
+        nature.
+      </li>
+      <li>
+        <strong>What does the upgrade prompt appear for?</strong> Whatever it
+        interrupts is the thing being sold. Size, speed, expiry, or removing an
+        advert.
+      </li>
+      <li>
+        <strong>Read the privacy policy for metadata, not just contents.</strong>
+        "We never look at your files" and "we retain records of transfers" can
+        both be true at once.
+      </li>
+      <li>
+        <strong>Look for what happens when you stop.</strong> A free product
+        behaves the same on day one and day four hundred. A trial does not.
+      </li>
+    </ul>
+
+    <h2>What "we delete your files" can mean</h2>
+    <p>
+      This phrase does a lot of work and is worth reading precisely. It can
+      mean the download link stops resolving. It can mean the stored object is
+      removed. Backups and operational logs may run on their own schedule, and
+      often a record that the transfer happened outlives the file itself.
+    </p>
+    <p>
+      Most services disclose all of this somewhere. The point is not that
+      anybody is lying — it is that "deleted" describes several different
+      things, and only the policy tells you which one you got.
+    </p>
+
+    <h2>Our own model, stated plainly</h2>
+    <p>
+      It would be poor form to write all of the above and stay vague about
+      ourselves.
+    </p>
+    <p>
+      Aurora FileShare is the fourth kind. Files travel directly between the two
+      browsers, so we never store one and never pay to move one. Our server only
+      introduces the two ends to each other and then steps aside, which costs
+      little enough that metering it would be more trouble than it is worth.
+      That is the whole reason there is no size limit and no account.
+    </p>
+    <p>
+      What we do see, because being precise matters more than sounding good: the
+      server briefly holds file names, sizes and types in memory so the
+      recipient knows what they are being offered, and it sees the IP addresses
+      connecting to it, as every web server does, which it uses to rate limit.
+      None of it is written to disk. There is a tip button if the tool saved you
+      something, and it is run by <a href="https://aurorahosting.nl">Aurora
+      Hosting</a> — so this page is, in part, a shop window. That seems fairer to
+      say than to leave you guessing.
+    </p>
+
+    <h2>The trade-off we make instead</h2>
+    <p>
+      Every model costs the user something. Ours costs convenience: because
+      nothing is stored, both people have to be online at the same time, and the
+      sender has to keep a tab open until the transfer finishes. If you need a
+      file to sit and wait for someone, a storage-based service is genuinely the
+      better tool and its fee is the honest price of the disk.
+    </p>
+    <p>
+      Related: <a href="/send-large-files">sending large files without an
+      account</a> and <a href="/send-50gb-file">how to send a 50 GB file for
+      free</a>. Our full disclosure is on the <a href="/faq">FAQ</a>.
+    </p>
+  </article>
+</main>
+
+<footer>
+  <div class="ftr-row">
+    <a href="/">Send a file</a>
+    <a href="/faq">Documentation &amp; FAQ</a>
+    <a href="https://aurorahosting.nl">Aurora Hosting</a>
+    <span class="copyright">&copy; 2026 Aurora Hosting</span>
+  </div>
+</footer>
+
+</div>
+<script type="module" src="/build/faq.js"></script>
+</body>
+</html>

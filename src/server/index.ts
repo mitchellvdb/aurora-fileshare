@@ -64,8 +64,11 @@ const server = createServer(async (req, res) => {
   if (path === '/' || path === '/index.html') {
     if (serveDocument('index.html', req, res)) return;
   }
-  if (path === '/send-large-files' || path === '/send-large-files.html') {
-    if (serveDocument('send-large-files.html', req, res)) return;
+  // The guides are plain documents; one lookup covers all of them.
+  for (const slug of ['send-large-files', 'send-50gb-file', 'what-free-means']) {
+    if (path === `/${slug}` || path === `/${slug}.html`) {
+      if (serveDocument(`${slug}.html`, req, res)) return;
+    }
   }
   if (path === '/faq' || path === '/faq.html' || path === '/docs') {
     if (serveDocument('faq.html', req, res)) return;
