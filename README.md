@@ -203,11 +203,37 @@ is exactly what the peer-to-peer design otherwise avoids.
 
 ## License
 
-The code is MIT — see [LICENSE](LICENSE). `package.json` has always declared
-`"license": "MIT"`; this just gives that declaration a file to point at.
+Copyright (C) 2026 Aurora Hosting
 
-Two things in this repository are **not** covered by it, so a blanket "all MIT"
-claim would be wrong:
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+
+The full text is in [LICENSE](LICENSE).
+
+### Why AGPL rather than MIT
+
+This is a hosted web application, and the AGPL's [section 13][s13] is the part
+that matters for one: anyone who runs a modified version as a network service
+has to offer its source to the people using it. A permissive licence would
+allow a modified, closed fork to be operated as a service with nothing given
+back. Self-hosting, studying, modifying and redistributing are all still
+permitted — including commercially.
+
+If you run this publicly, link your source from the interface so the people
+using it can find it.
+
+[s13]: https://www.gnu.org/licenses/agpl-3.0.en.html#section13
+
+### What is not covered
 
 - **The bundled fonts.** `public/fonts/` ships Archivo and JetBrains Mono as
   WOFF2. Both are SIL Open Font License 1.1 and stay that way — the OFL does not
@@ -215,7 +241,7 @@ claim would be wrong:
   what the OFL asks of anyone redistributing them. See
   [public/fonts/README.txt](public/fonts/README.txt).
 - **Runtime dependencies.** `ws` and `qrcode-generator` carry their own terms
-  (both MIT at the time of writing).
+  (both MIT at the time of writing). The AGPL does not reach into them.
 
 Nothing here derives from FilePizza. This is an independent implementation of
 the same idea, which is not something copyright reaches; FilePizza's own code is
