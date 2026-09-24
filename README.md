@@ -216,7 +216,10 @@ fileshare-close https://fileshare.aurorahosting.nl/d/swift-otter-123
 It talks to a second listener on `127.0.0.1:${ADMIN_PORT:-8081}`, never on
 `HOST`, so the tunnel cannot reach it. Both ends are told; the recipient's page
 aborts a transfer in progress. The log records that a share was closed, not
-which one. Install with `install -m 755 deploy/fileshare-close /usr/local/bin/`.
+which one. Install with `install -m 755 deploy/fileshare-close /usr/local/bin/`;
+from the Proxmox host, call it by its full path (`pct exec 112 --
+/usr/local/bin/fileshare-close <link>`), since `pct exec` leaves `/usr/local/bin`
+out of `PATH`.
 
 ## Cache busting
 

@@ -7,7 +7,8 @@
 # Both ends are told the operator closed it; the recipient's page aborts any
 # transfer in progress. Talks to the loopback-only admin port, so it has to run
 # inside the container - from the Proxmox host:
-#   pct exec 112 -- fileshare-close <link>
+#   pct exec 112 -- /usr/local/bin/fileshare-close <link>
+# (the full path: pct exec runs with a PATH that leaves out /usr/local/bin)
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
