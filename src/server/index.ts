@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import type { ClientMessage, FileMeta } from '../shared/protocol.js';
-import { MAX_FILES } from '../shared/protocol.js';
+import type { ClientMessage, FileStub } from '../shared/protocol.js';
+import { MAX_FILES, SEALED_MAX } from '../shared/protocol.js';
 import { config } from './config.js';
-import { ChannelRegistry, newPeer, send, type Peer } from './channels.js';
+import { ChannelRegistry, newPeer, parseVerifier, send, type Peer } from './channels.js';
 import { RateLimiter } from './rate-limit.js';
 import { isValidSlug } from './slug.js';
 import { crawlerSummary, identifyCrawler, recordCrawlerVisit } from './crawlers.js';
@@ -21,6 +21,10 @@ const PUBLIC_ROOT = resolve(HERE, '../../public');
 
 const registry = new ChannelRegistry();
 const hostLimiter = new RateLimiter(config.hostRateLimit);
+const joinFailures = new RateLimiter(config.joinFailLimit);
+
+/** Failed joins one connection may make before it is dropped. */
+const MAX_FAILED_JOINS_PER_CONNECTION = 5;
 
 function clientIp(req: { socket: { remoteAddress?: string }; headers: Record<string, unknown> }): string {
   if (config.trustProxy) {
@@ -53,7 +57,8 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       ok: true,
-      channels: registry.size,
+      // How many shares are live is deliberately not here: to someone guessing
+      // links it says when guessing is worth it. It is on the operator port.
       uptime: process.uptime(),
       crawlers: crawlerSummary(),
       usage: usageSummary(),
@@ -101,25 +106,27 @@ const server = createServer(async (req, res) => {
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 256 * 1024 });
 
-function validateFiles(input: unknown): FileMeta[] | null {
+/**
+ * The server sees ids and sizes only; names and types are inside the sealed
+ * manifest, which the recipient's browser checks and cleans up itself.
+ */
+function validateFiles(input: unknown): FileStub[] | null {
   if (!Array.isArray(input) || input.length === 0 || input.length > MAX_FILES) return null;
-  const files: FileMeta[] = [];
+  const files: FileStub[] = [];
   for (const raw of input) {
     if (typeof raw !== 'object' || raw === null) return null;
     const f = raw as Record<string, unknown>;
     if (typeof f['id'] !== 'string' || f['id'].length > 64) return null;
-    if (typeof f['name'] !== 'string' || f['name'].length === 0 || f['name'].length > 512) return null;
     if (typeof f['size'] !== 'number' || !Number.isFinite(f['size']) || f['size'] < 0) return null;
     if (config.maxFileSize > 0 && f['size'] > config.maxFileSize) return null;
-    files.push({
-      id: f['id'],
-      // Strip path separators so a crafted name cannot influence the save path.
-      name: f['name'].replace(/[/\\]/g, '_'),
-      size: f['size'],
-      type: typeof f['type'] === 'string' ? f['type'].slice(0, 128) : '',
-    });
+    files.push({ id: f['id'], size: f['size'] });
   }
   return files;
+}
+
+function isSealed(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= SEALED_MAX
+    && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
 wss.on('connection', (ws: WebSocket, req) => {
@@ -153,14 +160,15 @@ wss.on('connection', (ws: WebSocket, req) => {
           return;
         }
         const files = validateFiles(msg.files);
-        if (!files) {
+        const verifier = parseVerifier(msg.verifier);
+        if (!files || !verifier || !isSealed(msg.sealed)) {
           send(ws, { t: 'error', code: 'bad-request', message: 'Invalid file list.' });
           return;
         }
         const password = typeof msg.password === 'string' && msg.password.length > 0
           ? msg.password.slice(0, 256)
           : undefined;
-        const channel = registry.create(peer, files, password);
+        const channel = registry.create(peer, files, msg.sealed, verifier, password);
         recordShare();
         send(ws, {
           t: 'hosted',
@@ -173,17 +181,29 @@ wss.on('connection', (ws: WebSocket, req) => {
 
       case 'join': {
         if (peer.slug) return;
-        if (!isValidSlug(msg.slug)) {
-          send(ws, { t: 'error', code: 'not-found', message: 'That link does not look right.' });
+        // Guessing is capped twice: per connection, so one socket cannot loop
+        // through slugs, and per address, so opening new sockets does not help.
+        if (peer.failedJoins >= MAX_FAILED_JOINS_PER_CONNECTION || joinFailures.exhausted(ip)) {
+          send(ws, { t: 'error', code: 'rate-limited', message: 'Too many attempts. Wait a minute and reload.' });
+          ws.close();
           return;
         }
-        const result = registry.join(msg.slug, peer, msg.password);
+        const result = isValidSlug(msg.slug)
+          ? registry.join(msg.slug, msg.auth, peer, msg.password)
+          : { ok: false as const, code: 'not-found' as const };
         if (!result.ok) {
+          // Being asked for a password is the normal flow, not a failure.
+          if (result.code !== 'password-required') {
+            peer.failedJoins += 1;
+            joinFailures.allow(ip);
+          }
           const message = result.code === 'not-found'
-            ? 'This share has expired or the sender closed their tab.'
+            ? 'This share has expired, the sender closed their tab, or the link is incomplete.'
             : result.code === 'password-required'
               ? 'This share is password protected.'
-              : 'Incorrect password.';
+              : result.code === 'locked'
+                ? 'Too many wrong passwords. The share was closed.'
+                : 'Incorrect password.';
           send(ws, { t: 'error', code: result.code, message });
           return;
         }
@@ -194,6 +214,7 @@ wss.on('connection', (ws: WebSocket, req) => {
           peerId: peer.id,
           uploader: channel.uploader.id,
           files: channel.files,
+          sealed: channel.sealed,
           iceServers: config.iceServers as never,
         });
         send(channel.uploader.ws, { t: 'peer-join', peerId: peer.id });
@@ -201,7 +222,7 @@ wss.on('connection', (ws: WebSocket, req) => {
       }
 
       case 'signal': {
-        if (!peer.slug || typeof msg.to !== 'string') return;
+        if (!peer.slug || typeof msg.to !== 'string' || !isSealed(msg.data)) return;
         const channel = registry.get(peer.slug);
         if (!channel) return;
         // Only relay between peers of the same channel.
@@ -244,6 +265,11 @@ wss.on('connection', (ws: WebSocket, req) => {
 // deploy/fileshare-close.
 
 const admin = createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ channels: registry.size }));
+    return;
+  }
   const match = /^\/close\/([^/]+)$/.exec(req.url ?? '');
   if (req.method !== 'POST' || !match) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not found\n');

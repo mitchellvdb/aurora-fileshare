@@ -49,6 +49,12 @@ export const config = {
   /** New channels allowed per IP per minute. */
   hostRateLimit: envInt('HOST_RATE_LIMIT', 20),
 
+  /**
+   * Failed joins allowed per IP per minute. With a 128-bit secret in every
+   * link guessing is hopeless anyway; this keeps it from even being cheap.
+   */
+  joinFailLimit: envInt('JOIN_FAIL_LIMIT', 20),
+
   /** Advisory only - the server never sees the bytes, this just gates the UI. */
   maxFileSize: envInt('MAX_FILE_SIZE_GB', 0) * 1024 ** 3,
 

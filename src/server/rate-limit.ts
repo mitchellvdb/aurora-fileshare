@@ -18,6 +18,12 @@ export class RateLimiter {
     return entry.count <= this.limit;
   }
 
+  /** True when key has used up its window, without counting this as a hit. */
+  exhausted(key: string): boolean {
+    const entry = this.hits.get(key);
+    return !!entry && entry.resetAt > Date.now() && entry.count >= this.limit;
+  }
+
   private sweep(): void {
     const now = Date.now();
     for (const [key, entry] of this.hits) {

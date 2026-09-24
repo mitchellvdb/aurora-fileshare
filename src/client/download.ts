@@ -1,5 +1,6 @@
 import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
 import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling } from './common.js';
+import { deriveKeys, seal, unseal } from './crypto.js';
 import { renderDonateButton } from './donate.js';
 import { createSink, initSaver, type SaveMode } from './save.js';
 import { FileReceiver, PeerLink, type ActiveDownload } from './transfer.js';
@@ -15,6 +16,47 @@ let files: FileMeta[] = [];
 let busy = false;
 
 const slug = decodeURIComponent(location.pathname.replace(/^\/d\//, ''));
+// The secret after '#'. Browsers never send it to the server; see crypto.ts.
+const keys = deriveKeys(location.hash.slice(1));
+
+/**
+ * The manifest is the one thing the other side controls that ends up in the
+ * page and in a filename, so check its shape and clean the names here - the
+ * server can no longer do it, because it cannot read them.
+ */
+function cleanFiles(raw: unknown): FileMeta[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 64) return null;
+  const out: FileMeta[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) return null;
+    const f = item as Record<string, unknown>;
+    if (typeof f['id'] !== 'string' || typeof f['name'] !== 'string'
+      || typeof f['size'] !== 'number' || !Number.isFinite(f['size']) || f['size'] < 0) return null;
+    out.push({
+      id: f['id'].slice(0, 64),
+      // Strip path separators so a crafted name cannot influence the save path.
+      name: (f['name'].replace(/[/\\\u0000-\u001f]/g, '_').slice(0, 512)) || 'file',
+      size: f['size'],
+      type: typeof f['type'] === 'string' ? f['type'].slice(0, 128) : '',
+    });
+  }
+  return out;
+}
+
+/** The file list, or 'ask' when the sender approves each person first. */
+function readManifest(sealed: unknown): FileMeta[] | 'ask' | null {
+  if (!keys) return null;
+  const raw = unseal<unknown>(keys.enc, sealed);
+  if (typeof raw === 'object' && raw !== null && (raw as { approval?: unknown }).approval === true) {
+    return 'ask';
+  }
+  return cleanFiles(raw);
+}
+
+function join(password?: string): void {
+  if (!keys) return;
+  signaling.send({ t: 'join', slug, auth: keys.auth, ...(password !== undefined ? { password } : {}) });
+}
 
 const statusBox = $<HTMLElement>('#status');
 const errorBox = $<HTMLElement>('#error');
@@ -46,6 +88,12 @@ function clearError(): void {
 
 async function main(): Promise<void> {
   $<HTMLElement>('#slug').textContent = slug;
+  if (!keys) {
+    // Most often a link cut short by a chat app, or copied without its end.
+    showError('This link is incomplete: the part after the # is missing or damaged. '
+      + 'Ask the sender to send the whole link again.');
+    return;
+  }
   saveMode = await initSaver();
 
   if (saveMode === 'blob') {
@@ -59,7 +107,7 @@ async function main(): Promise<void> {
     showError('Could not reach the server. Check your connection and reload.');
     return;
   }
-  signaling.send({ t: 'join', slug });
+  join();
 }
 
 signaling.on((msg) => {
@@ -69,14 +117,48 @@ signaling.on((msg) => {
       passwordSection.hidden = true;
       uploaderId = msg.uploader;
       iceServers = msg.iceServers;
-      files = msg.files;
-      setStatus('Connecting directly to the sender…');
+      const manifest = readManifest(msg.sealed);
+      if (!manifest) {
+        showError('This share could not be read. The link may be damaged; ask the sender for it again.');
+        signaling.close();
+        return;
+      }
       setupPeer();
+      if (manifest === 'ask') {
+        // The names come later, and only if the sender says yes.
+        setStatus('Waiting for the sender to let you in…');
+        return;
+      }
+      files = manifest;
+      setStatus('Connecting directly to the sender…');
       renderFiles();
       return;
     }
     case 'signal': {
-      if (msg.from === uploaderId) void link?.handleSignal(msg.data);
+      if (msg.from !== uploaderId || !keys) return;
+      // Anything that does not decrypt was not written by the sender.
+      const data = unseal<{ ctl?: string; files?: unknown }>(keys.enc, msg.data);
+      if (data === null) return;
+      if (data.ctl === 'manifest') {
+        const allowed = cleanFiles(data.files);
+        if (!allowed) return;
+        files = allowed;
+        setStatus('The sender let you in. Connecting directly…');
+        renderFiles();
+        return;
+      }
+      if (data.ctl === 'wait') {
+        setStatus('Waiting for the sender to let you in…');
+        return;
+      }
+      if (data.ctl === 'declined') {
+        setStatus('The sender declined the connection.', 'warn');
+        downloadAll.disabled = true;
+        link?.close();
+        signaling.close();
+        return;
+      }
+      void link?.handleSignal(data);
       return;
     }
     case 'closed': {
@@ -104,14 +186,14 @@ $<HTMLFormElement>('#password-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
   clearError();
   setStatus('Checking password…');
-  signaling.send({ t: 'join', slug, password: passwordInput.value });
+  join(passwordInput.value);
 });
 
 // --- Peer connection --------------------------------------------------------
 
 function setupPeer(): void {
   link = new PeerLink(iceServers, (data) => {
-    signaling.send({ t: 'signal', to: uploaderId, data });
+    if (keys) signaling.send({ t: 'signal', to: uploaderId, data: seal(keys.enc, data) });
   });
 
   // The sender opens the channel; we just answer and wait for it.

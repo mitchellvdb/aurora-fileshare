@@ -59,7 +59,7 @@ try {
     () => document.querySelector('#share-url')?.value?.startsWith('http'), { timeout: 10000 });
 
   const shareUrl = await sender.$eval('#share-url', (el) => el.value);
-  check('sender receives a share link', /\/d\/[a-z]+-[a-z]+-\d{3}$/.test(shareUrl), shareUrl);
+  check('sender receives a share link', /\/d\/[a-z]+-[a-z]+-\d{3}#[A-Za-z0-9_-]{22}$/.test(shareUrl), shareUrl);
   check('QR code rendered', (await sender.$('#qr svg')) !== null);
 
   // --- Receiver -------------------------------------------------------------

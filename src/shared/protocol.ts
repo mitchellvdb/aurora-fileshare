@@ -15,18 +15,35 @@ export interface FileMeta {
   type: string;
 }
 
+/**
+ * What the server gets to see of a file: an id and a size, for the file-count
+ * and size checks. Names and types travel only inside the sealed manifest,
+ * encrypted with a key the server never has (see client/crypto.ts).
+ */
+export interface FileStub {
+  id: string;
+  size: number;
+}
+
+/** Ceiling on a sealed manifest or signal, in base64url characters. */
+export const SEALED_MAX = 128 * 1024;
+
 /** Peer identifier assigned by the server, unique within a channel. */
 export type PeerId = string;
 
 // --- Signaling: browser -> server -------------------------------------------
 
 export type ClientMessage =
-  /** Uploader offers a set of files and asks for a slug. */
-  | { t: 'host'; files: FileMeta[]; password?: string }
-  /** Downloader asks to join an existing slug. */
-  | { t: 'join'; slug: string; password?: string }
-  /** Relay an SDP/ICE payload to another peer in the same channel. */
-  | { t: 'signal'; to: PeerId; data: unknown }
+  /**
+   * Uploader offers a set of files and asks for a slug. `sealed` is the full
+   * manifest, encrypted; `verifier` is the SHA-256 of the join token derived
+   * from the link's secret.
+   */
+  | { t: 'host'; files: FileStub[]; sealed: string; verifier: string; password?: string }
+  /** Downloader asks to join an existing slug, proving it holds the link's secret. */
+  | { t: 'join'; slug: string; auth: string; password?: string }
+  /** Relay a sealed SDP/ICE payload to another peer in the same channel. */
+  | { t: 'signal'; to: PeerId; data: string }
   /** Uploader reports live progress so the server can surface it (optional). */
   | { t: 'ping' };
 
@@ -36,13 +53,13 @@ export type ServerMessage =
   /** Channel created; this is the slug to share. */
   | { t: 'hosted'; slug: string; peerId: PeerId; iceServers: RTCIceServerConfig[] }
   /** Join accepted; here is the manifest and how to reach the uploader. */
-  | { t: 'joined'; peerId: PeerId; uploader: PeerId; files: FileMeta[]; iceServers: RTCIceServerConfig[] }
+  | { t: 'joined'; peerId: PeerId; uploader: PeerId; files: FileStub[]; sealed: string; iceServers: RTCIceServerConfig[] }
   /** A downloader joined this channel (sent to the uploader). */
   | { t: 'peer-join'; peerId: PeerId }
   /** A peer disconnected. */
   | { t: 'peer-leave'; peerId: PeerId }
-  /** Relayed SDP/ICE payload. */
-  | { t: 'signal'; from: PeerId; data: unknown }
+  /** Relayed sealed payload. */
+  | { t: 'signal'; from: PeerId; data: string }
   /** The uploader closed the tab; the channel is gone. */
   | { t: 'closed'; reason: string }
   | { t: 'pong' }
@@ -56,6 +73,7 @@ export type ErrorCode =
   | 'too-many-files'
   | 'file-too-large'
   | 'rate-limited'
+  | 'locked'
   | 'server-full';
 
 /** Structurally identical to RTCIceServer, redeclared so the server can build

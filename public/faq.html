@@ -45,7 +45,7 @@
     <h2>How a transfer works</h2>
     <ol>
       <li><strong>You pick files.</strong> They stay on your device. Nothing is read or copied yet.</li>
-      <li><strong>You get a link.</strong> Our server records only that the share exists, plus the file names and sizes needed to show the recipient what they are about to receive.</li>
+      <li><strong>You get a link.</strong> It ends in a random secret, the part after the <code>#</code>, which your browser never sends to us. Our server records that the share exists and how many files it has of what size; the file names are encrypted with that secret, so only someone holding the link can read them.</li>
       <li><strong>They open the link.</strong> The server introduces the two browsers to each other — this is called signalling — and then steps out of the way.</li>
       <li><strong>The browsers connect directly</strong> over WebRTC and the file streams across, encrypted end to end by DTLS.</li>
     </ol>
@@ -76,11 +76,13 @@
     <h3>What does the server actually see?</h3>
     <p>
       Being precise, because "nothing" would be an overstatement: to introduce the
-      two browsers, the server briefly holds the share's file names, sizes and MIME
-      types in memory, along with the connection details the browsers need to find
-      each other. It also sees the IP addresses connecting to it, as any web server
-      does, and uses them to rate limit share creation. None of this is written to
-      disk, and all of it disappears when the share ends.
+      two browsers, the server briefly holds how many files a share has and how
+      large they are, plus an encrypted copy of the file list that it cannot read.
+      The connection details the two browsers exchange pass through it encrypted as
+      well. It also sees the IP addresses connecting to it, as any web server does —
+      and so does Cloudflare, which the site runs behind — and uses them to limit
+      how often shares can be created and wrong links tried. None of this is
+      written to disk, and all of it disappears when the share ends.
     </p>
     <p>
       Search engine crawlers are recorded by name — that Googlebot visited, and
@@ -104,6 +106,13 @@
       of the protocol — there is no mode in which the data crosses the network in
       the clear.
     </p>
+    <p>
+      It is also encrypted against us. The secret after the <code>#</code> in every
+      link never reaches our server, and the file list and everything the two
+      browsers say to each other while connecting are encrypted with it. So neither
+      we, nor anyone who took over our server, could read your file names or slip
+      in between the two browsers.
+    </p>
 
     <h3>Do I have to keep the tab open?</h3>
     <p>
@@ -117,6 +126,16 @@
       Until you close the tab, or four hours of inactivity, whichever comes first.
       Links are not meant to be permanent — for anything long-lived you want actual
       hosting, not a peer-to-peer transfer.
+    </p>
+
+    <h3>Can someone guess my link?</h3>
+    <p>
+      No. The words at the start of a link are only a label; what opens the share
+      is the random 128-bit secret after the <code>#</code>, and guessing that is
+      not realistic. The server also cuts off anyone who keeps trying wrong links.
+      If you worry the link itself might leak, tick "Ask me before each person
+      connects": nobody sees anything, not even the file names, until you let them
+      in.
     </p>
 
     <h3>Can several people download the same share?</h3>
@@ -138,7 +157,8 @@
     <p>
       Yes. Set a password when you create the link and recipients must enter it
       before they can even see the file list. Send the password separately from the
-      link — a password in the same message protects nothing.
+      link — a password in the same message protects nothing. After ten wrong
+      passwords the share closes itself.
     </p>
 
     <h3>The recipient cannot connect. What went wrong?</h3>

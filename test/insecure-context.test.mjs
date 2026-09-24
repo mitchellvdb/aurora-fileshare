@@ -86,7 +86,7 @@ try {
   await sender.waitForFunction(
     () => document.querySelector('#share-url')?.value?.startsWith('http'), { timeout: 15000 });
   const shareUrl = await sender.$eval('#share-url', (el) => el.value);
-  check('a share link was issued over plain HTTP', /\/d\/[a-z]+-[a-z]+-\d{3}$/.test(shareUrl), shareUrl);
+  check('a share link was issued over plain HTTP', /\/d\/[a-z]+-[a-z]+-\d{3}#[A-Za-z0-9_-]{22}$/.test(shareUrl), shareUrl);
 
   const context = await browser.createBrowserContext();
   const receiver = await context.newPage();

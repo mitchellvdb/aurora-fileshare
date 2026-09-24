@@ -1,8 +1,9 @@
-import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
+import type { FileMeta, FileStub, RTCIceServerConfig } from '../shared/protocol.js';
 import { MAX_FILES } from '../shared/protocol.js';
 import {
   $, copyToClipboard, el, formatBytes, formatRate, RateMeter, Signaling, uid,
 } from './common.js';
+import { deriveKeys, newSecret, seal, unseal, type ShareKeys } from './crypto.js';
 import { renderDonateButton } from './donate.js';
 import { renderQr } from './qr.js';
 import { FileSender, PeerLink, type SendProgress } from './transfer.js';
@@ -24,8 +25,18 @@ interface Recipient {
 const selected = new Map<string, File>();
 const recipients = new Map<string, Recipient>();
 const signaling = new Signaling();
+/** People who opened the link and are waiting for the sender's say-so. */
+const pending = new Map<string, HTMLElement>();
 let iceServers: RTCIceServerConfig[] = [];
 let shareUrl = '';
+let keys: ShareKeys | null = null;
+let askFirst = false;
+let manifest: FileMeta[] = [];
+
+/** Everything sent through the server is sealed with the link's key. */
+function sendSealed(to: string, data: unknown): void {
+  if (keys) signaling.send({ t: 'signal', to, data: seal(keys.enc, data) });
+}
 
 // --- File selection ---------------------------------------------------------
 
@@ -40,6 +51,7 @@ const composeBox = $<HTMLElement>('#compose');
 const recipientsCard = $<HTMLElement>('#recipients-card');
 const startButton = $<HTMLButtonElement>('#start-share');
 const passwordInput = $<HTMLInputElement>('#password');
+const approveInput = $<HTMLInputElement>('#approve');
 const pickerSection = $<HTMLElement>('#picker');
 const shareSection = $<HTMLElement>('#share');
 const errorBox = $<HTMLElement>('#error');
@@ -153,27 +165,42 @@ async function startShare(): Promise<void> {
     return;
   }
 
-  const meta: FileMeta[] = [...selected].map(([id, file]) => ({
+  const meta: FileMeta[] = manifest = [...selected].map(([id, file]) => ({
     id, name: file.name, size: file.size, type: file.type,
   }));
+  // The server gets ids and sizes; the names go inside the sealed manifest.
+  const stubs: FileStub[] = meta.map(({ id, size }) => ({ id, size }));
 
+  keys = deriveKeys(newSecret());
+  if (!keys) return;
+  askFirst = approveInput.checked;
   const password = passwordInput.value.trim();
-  signaling.send({ t: 'host', files: meta, ...(password ? { password } : {}) });
+  // Asking first also keeps the file names back: a leaked link then shows
+  // nothing at all until the sender lets that person in.
+  signaling.send({
+    t: 'host', files: stubs, sealed: seal(keys.enc, askFirst ? { approval: true } : meta),
+    verifier: keys.verifier,
+    ...(password ? { password } : {}),
+  });
 }
 
 signaling.on((msg) => {
   switch (msg.t) {
     case 'hosted': {
       iceServers = msg.iceServers;
-      shareUrl = `${location.origin}/d/${msg.slug}`;
-      showShareScreen(msg.slug);
+      // The secret rides in the fragment, which browsers never send to a server.
+      shareUrl = `${location.origin}/d/${msg.slug}#${keys?.secret ?? ''}`;
+      showShareScreen();
       return;
     }
     case 'peer-join': {
-      addRecipient(msg.peerId);
+      if (askFirst) askAbout(msg.peerId);
+      else addRecipient(msg.peerId);
       return;
     }
     case 'peer-leave': {
+      pending.get(msg.peerId)?.remove();
+      pending.delete(msg.peerId);
       const recipient = recipients.get(msg.peerId);
       if (recipient) {
         recipient.link.close();
@@ -184,7 +211,9 @@ signaling.on((msg) => {
       return;
     }
     case 'signal': {
-      void recipients.get(msg.from)?.link.handleSignal(msg.data);
+      // Anything that does not decrypt was not written by a holder of the link.
+      const data = keys ? unseal<unknown>(keys.enc, msg.data) : null;
+      if (data !== null) void recipients.get(msg.from)?.link.handleSignal(data);
       return;
     }
     case 'closed': {
@@ -200,7 +229,7 @@ signaling.on((msg) => {
   }
 });
 
-function showShareScreen(slug: string): void {
+function showShareScreen(): void {
   pickerSection.hidden = true;
   shareSection.hidden = false;
 
@@ -212,9 +241,10 @@ function showShareScreen(slug: string): void {
   const summary = $<HTMLElement>('#share-summary');
   const total = [...selected.values()].reduce((sum, f) => sum + f.size, 0);
   summary.textContent =
-    `${selected.size} file${selected.size === 1 ? '' : 's'} · ${formatBytes(total)} ready to send · code ${slug}`;
+    `${selected.size} file${selected.size === 1 ? '' : 's'} · ${formatBytes(total)} ready to send`;
 
   if (passwordInput.value.trim()) $<HTMLElement>('#password-note').hidden = false;
+  if (askFirst) $<HTMLElement>('#approve-note').hidden = false;
   updateRecipientCount();
 }
 
@@ -225,6 +255,45 @@ $<HTMLButtonElement>('#copy-link').addEventListener('click', async (ev) => {
   if (!ok) $<HTMLInputElement>('#share-url').select();
   setTimeout(() => { button.textContent = 'Copy'; }, 1800);
 });
+
+// --- Asking first ------------------------------------------------------------
+
+/**
+ * With "ask me first" on, a newcomer gets no connection - and so no files - until
+ * the sender allows it. The newcomer's page is told to wait, through the same
+ * sealed channel, so the server cannot fake an approval either.
+ */
+function askAbout(peerId: string): void {
+  sendSealed(peerId, { ctl: 'wait' });
+
+  const allow = el('button', { class: 'btn', type: 'button' }, 'Allow');
+  const decline = el('button', { class: 'btn btn-secondary', type: 'button' }, 'Decline');
+  const row = el('li', { class: 'recipient pending' },
+    el('div', { class: 'xfer-head' },
+      el('span', { class: 'recipient-name xfer-title' }, 'Someone opened the link'),
+    ),
+    el('div', { class: 'xfer-meta' }, 'They cannot see or download anything until you allow it.'),
+    el('div', { class: 'approve-actions' }, allow, decline),
+  );
+  $<HTMLElement>('#recipients').append(row);
+  pending.set(peerId, row);
+
+  const settle = (): void => {
+    row.remove();
+    pending.delete(peerId);
+  };
+  allow.addEventListener('click', () => {
+    settle();
+    sendSealed(peerId, { ctl: 'manifest', files: manifest });
+    addRecipient(peerId);
+  });
+  decline.addEventListener('click', () => {
+    settle();
+    sendSealed(peerId, { ctl: 'declined' });
+    updateRecipientCount();
+  });
+  updateRecipientCount();
+}
 
 // --- One peer connection per recipient --------------------------------------
 
@@ -243,9 +312,7 @@ function addRecipient(peerId: string): void {
   );
   $<HTMLElement>('#recipients').append(row);
 
-  const link = new PeerLink(iceServers, (data) => {
-    signaling.send({ t: 'signal', to: peerId, data });
-  });
+  const link = new PeerLink(iceServers, (data) => sendSealed(peerId, data));
 
   const recipient: Recipient = {
     peerId, link, channel: null, row, bar, status, percent,
@@ -309,7 +376,7 @@ async function reportTransfer(recipient: Recipient): Promise<void> {
 }
 
 function updateRecipientCount(): void {
-  const count = recipients.size;
+  const count = recipients.size + pending.size;
   $<HTMLElement>('#recipient-count').textContent = count === 0
     ? 'Waiting for the other side to open the link'
     : `${count} ${count === 1 ? 'person has' : 'people have'} opened the link.`;

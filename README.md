@@ -63,11 +63,14 @@ server for that file.
 ```
   Sender browser                Signalling (this app)             Recipient browser
   ──────────────                ─────────────────────             ─────────────────
+  new secret S
   pick files ──── host ───────────▶ slug + channel
-                                    ◀─── join ────────────────────  open /d/<slug>
+                  (sealed list,     keeps sha256(auth)
+                   sha256(auth))                                    open /d/<slug>#S
+                                    ◀─── join (auth) ─────────────
                  ◀── peer-join ────
   create offer ── signal ─────────▶ relay ──── signal ───────────▶  answer
-                 ◀───────────── SDP / ICE relayed both ways ─────▶
+                 ◀────────── SDP / ICE, sealed, relayed both ways ▶
 
   ═══════════════ WebRTC data channel, direct, DTLS-encrypted ══════════════════
   file.slice() ──────────── 64 KiB chunks, backpressured ─────────▶ Service Worker
@@ -157,8 +160,8 @@ Search surface, all rendered server-side at startup:
 
 Share pages are excluded twice over: `noindex` in markup *and* an `X-Robots-Tag`
 header, because a crawler that reaches a share URL without having read
-`robots.txt` would never see the meta tag. The slug is the only thing gating a
-share, so it must not end up in an index.
+`robots.txt` would never see the meta tag. A share URL without its fragment
+opens nothing, but there is still no reason for one to end up in an index.
 
 The FAQ's structured data is extracted from the page's own markup at startup, so
 the marked-up answers cannot drift from the visible ones - which is precisely
@@ -266,14 +269,52 @@ traffic" message rather than a silent hang.
 Note that a TURN relay also means those transfers consume your bandwidth, which
 is exactly what the peer-to-peer design otherwise avoids.
 
+## Link secrets and end-to-end encryption
+
+Every link ends in 128 random bits after the `#`:
+`/d/swift-otter-482#Xk3v…`. Browsers never send the fragment to a server, so
+it exists only in the two browsers and in the link. `src/client/crypto.ts`
+derives two keys from it with HKDF-SHA256:
+
+- **auth** goes to the server on join. The sender registered only its SHA-256,
+  so the server can check a joiner but cannot mint a join itself. The slug is
+  now just a label; without the secret a link opens nothing, and a wrong secret
+  gets the same answer as a slug that does not exist.
+- **enc** never leaves the browser. It seals the file list and every signalling
+  message with AES-256-GCM. The server relays ciphertext: it cannot read file
+  names, cannot see the ICE candidates (both sides' addresses), and cannot swap
+  the DTLS fingerprints in the SDP to put itself in the middle. A message that
+  fails to decrypt is dropped.
+
+The primitives are the audited `@noble/hashes` and `@noble/ciphers` rather than
+WebCrypto, because `crypto.subtle` only exists in secure contexts and the app
+must keep working over plain HTTP on a LAN (`test/insecure-context.test.mjs`).
+
+Guessing is also capped, so it is not even cheap to try: a connection is dropped
+after 5 failed joins, an address after `JOIN_FAIL_LIMIT` (default 20) per
+minute, and a share closes itself after 10 wrong passwords, telling the sender
+why. `/healthz` no longer says how many shares are live - that number tells a
+guesser when guessing pays - it moved to `GET /status` on the loopback admin
+port.
+
+**Ask me first.** A tick box on the upload page. With it on, the sealed file
+list holds only a marker; a newcomer is told (through the sealed channel, so the
+server cannot fake it) to wait, and gets the names and a connection only when
+the sender clicks Allow. A leaked link then shows nothing at all.
+
+`test/e2e.test.mjs` captures every WebSocket frame from two real browsers and
+asserts that no file name, fingerprint, ICE candidate or secret crosses the
+server; `test/security.test.mjs` covers the limits.
+
 ## Security notes
 
 - Strict CSP: no inline script or style, no third-party origins.
 - Passwords are salted and scrypt-hashed in memory; only the hash is compared,
   in constant time.
 - Signalling is scoped per channel — a peer cannot signal into another channel.
-- Filenames are stripped of path separators server-side and encoded per RFC 6266
-  on the way out.
+- The server never sees filenames. The recipient's browser checks the decrypted
+  manifest and strips path separators and control characters itself; names are
+  encoded per RFC 6266 on the way out.
 - Channels are in-memory only and expire on idle (`CHANNEL_TTL_MINUTES`).
 - The systemd unit runs unprivileged under `ProtectSystem=strict` with a
   read-only application directory.

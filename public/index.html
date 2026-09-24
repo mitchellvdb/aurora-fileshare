@@ -62,6 +62,12 @@
           <input class="input" type="password" id="password" autocomplete="new-password"
                  placeholder="Leave blank for no password">
         </div>
+        <label class="check">
+          <input type="checkbox" id="approve">
+          <span>Ask me before each person connects
+            <span class="note">Nobody gets the files until you allow them, even if the link leaks.</span>
+          </span>
+        </label>
         <div class="actions">
           <button class="btn" id="start-share" type="button" disabled>Choose files first</button>
           <span class="note">Your browser stays open until the transfer finishes.</span>
@@ -85,6 +91,9 @@
           <p class="muted" id="share-summary"></p>
           <p class="note" id="password-note" hidden>
             This share is password protected — send the password separately from the link.
+          </p>
+          <p class="note" id="approve-note" hidden>
+            You will be asked before anyone connects.
           </p>
         </div>
       </div>

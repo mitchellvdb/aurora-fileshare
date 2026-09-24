@@ -10,6 +10,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import WebSocket from 'ws';
+import { createHash, randomBytes } from 'node:crypto';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -71,9 +72,13 @@ function next(ws) {
     ws.once('message', (raw) => { clearTimeout(timer); res(JSON.parse(raw.toString())); });
   });
 }
+const AUTH = randomBytes(32);
+const auth = AUTH.toString('base64url');
+const verifier = createHash('sha256').update(AUTH).digest('base64url');
+const SEALED = randomBytes(64).toString('base64url');
 async function host(origin) {
   const up = await wsOpen(origin);
-  up.send(JSON.stringify({ t: 'host', files: [{ id: 'f1', name: 'a.txt', size: 1, type: 'text/plain' }] }));
+  up.send(JSON.stringify({ t: 'host', files: [{ id: 'f1', size: 1 }], sealed: SEALED, verifier }));
   return { up, slug: (await next(up)).slug };
 }
 function closeCmd(arg, adminPort) {
@@ -125,7 +130,7 @@ await withServer({ CONTACT_EMAIL: EMAIL, ADMIN_PORT: String(adminPort) }, async 
   // link as someone would paste it.
   const { up, slug } = await host(origin);
   const down = await wsOpen(origin);
-  down.send(JSON.stringify({ t: 'join', slug }));
+  down.send(JSON.stringify({ t: 'join', slug, auth }));
   await next(down);
   await next(up); // peer-join
   const upClosed = next(up);
@@ -137,7 +142,7 @@ await withServer({ CONTACT_EMAIL: EMAIL, ADMIN_PORT: String(adminPort) }, async 
   check('the recipient is told', d.t === 'closed' && /operator/.test(d.reason), JSON.stringify(d));
 
   const late = await wsOpen(origin);
-  late.send(JSON.stringify({ t: 'join', slug }));
+  late.send(JSON.stringify({ t: 'join', slug, auth }));
   const gone = await next(late);
   check('the link no longer works', gone.t === 'error' && gone.code === 'not-found', JSON.stringify(gone));
 
@@ -153,7 +158,7 @@ await withServer({ CONTACT_EMAIL: EMAIL, ADMIN_PORT: String(adminPort) }, async 
   const other = await host(origin);
   const pub = await fetch(`${origin}/close/${other.slug}`, { method: 'POST' });
   const probe = await wsOpen(origin);
-  probe.send(JSON.stringify({ t: 'join', slug: other.slug }));
+  probe.send(JSON.stringify({ t: 'join', slug: other.slug, auth }));
   const stillThere = await next(probe);
   check('the public port cannot close a share',
     pub.status === 404 && stillThere.t === 'joined', `${pub.status} ${stillThere.t}`);

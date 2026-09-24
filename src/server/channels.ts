@@ -1,6 +1,6 @@
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import type { FileMeta, PeerId, ServerMessage } from '../shared/protocol.js';
+import type { FileStub, PeerId, ServerMessage } from '../shared/protocol.js';
 import { config } from './config.js';
 import { generateSlug } from './slug.js';
 
@@ -9,7 +9,12 @@ export interface Peer {
   ws: WebSocket;
   slug: string | null;
   isUploader: boolean;
+  /** Failed join attempts on this connection; see index.ts. */
+  failedJoins: number;
 }
+
+/** Wrong passwords a share tolerates before it closes itself. */
+export const MAX_BAD_PASSWORDS = 10;
 
 interface StoredPassword {
   salt: Buffer;
@@ -19,11 +24,33 @@ interface StoredPassword {
 export interface Channel {
   slug: string;
   uploader: Peer;
-  files: FileMeta[];
+  files: FileStub[];
+  /** The encrypted manifest. Opaque here; only the browsers hold the key. */
+  sealed: string;
+  /** SHA-256 of the join token. The token itself is never stored. */
+  verifier: Buffer;
   password: StoredPassword | null;
+  badPasswords: number;
   createdAt: number;
   lastActivity: number;
   downloaders: Map<PeerId, Peer>;
+}
+
+/** Decodes base64url, or null for anything else. */
+function decode(text: unknown, bytes: number): Buffer | null {
+  if (typeof text !== 'string' || !/^[A-Za-z0-9_-]+$/.test(text)) return null;
+  const buf = Buffer.from(text, 'base64url');
+  return buf.length === bytes ? buf : null;
+}
+
+export function parseVerifier(text: unknown): Buffer | null {
+  return decode(text, 32);
+}
+
+function tokenMatches(verifier: Buffer, auth: unknown): boolean {
+  const token = decode(auth, 32);
+  if (!token) return false;
+  return timingSafeEqual(verifier, createHash('sha256').update(token).digest());
 }
 
 function hashPassword(password: string, salt = randomBytes(16)): StoredPassword {
@@ -56,7 +83,7 @@ export class ChannelRegistry {
     return this.channels.size >= config.maxChannels;
   }
 
-  create(uploader: Peer, files: FileMeta[], password?: string): Channel {
+  create(uploader: Peer, files: FileStub[], sealed: string, verifier: Buffer, password?: string): Channel {
     // Retry on the astronomically unlikely slug collision rather than trusting luck.
     let slug = generateSlug();
     for (let i = 0; this.channels.has(slug) && i < 10; i++) slug = generateSlug();
@@ -66,7 +93,10 @@ export class ChannelRegistry {
       slug,
       uploader,
       files,
+      sealed,
+      verifier,
       password: password ? hashPassword(password) : null,
+      badPasswords: 0,
       createdAt: now,
       lastActivity: now,
       downloaders: new Map(),
@@ -81,18 +111,31 @@ export class ChannelRegistry {
     return this.channels.get(slug);
   }
 
-  /** Returns the channel, or an error code describing why the join failed. */
-  join(slug: string, peer: Peer, password?: string):
+  /**
+   * Returns the channel, or an error code describing why the join failed.
+   *
+   * A wrong token answers exactly like a missing share, so probing cannot tell
+   * a live slug from a dead one. The password is only looked at once the token
+   * checks out: nobody without the link gets to try passwords at all, and
+   * nobody gets to make the server run scrypt for free.
+   */
+  join(slug: string, auth: unknown, peer: Peer, password?: string):
     | { ok: true; channel: Channel }
-    | { ok: false; code: 'not-found' | 'password-required' | 'bad-password' } {
+    | { ok: false; code: 'not-found' | 'password-required' | 'bad-password' | 'locked' } {
     const channel = this.channels.get(slug);
-    if (!channel) return { ok: false, code: 'not-found' };
+    if (!channel || !tokenMatches(channel.verifier, auth)) return { ok: false, code: 'not-found' };
 
     if (channel.password) {
       if (password === undefined || password === '') {
         return { ok: false, code: 'password-required' };
       }
       if (!passwordMatches(channel.password, password)) {
+        channel.badPasswords += 1;
+        if (channel.badPasswords >= MAX_BAD_PASSWORDS) {
+          this.end(slug, `Someone entered a wrong password ${MAX_BAD_PASSWORDS} times, so this `
+            + 'share was closed to protect it. Create a new one if you still want to send.');
+          return { ok: false, code: 'locked' };
+        }
         return { ok: false, code: 'bad-password' };
       }
     }
@@ -138,9 +181,13 @@ export class ChannelRegistry {
    * and the recipient's page aborts any transfer in progress when it hears it.
    */
   close(slug: string): boolean {
+    return this.end(slug, 'This share was closed by the operator.');
+  }
+
+  /** Ends a share, telling everyone in it why. */
+  private end(slug: string, reason: string): boolean {
     const channel = this.channels.get(slug);
     if (!channel) return false;
-    const reason = 'This share was closed by the operator.';
     send(channel.uploader.ws, { t: 'closed', reason });
     for (const d of channel.downloaders.values()) send(d.ws, { t: 'closed', reason });
     this.channels.delete(slug);
@@ -162,5 +209,5 @@ export class ChannelRegistry {
 }
 
 export function newPeer(ws: WebSocket): Peer {
-  return { id: randomUUID(), ws, slug: null, isUploader: false };
+  return { id: randomUUID(), ws, slug: null, isUploader: false, failedJoins: 0 };
 }

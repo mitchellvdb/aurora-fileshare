@@ -10,6 +10,7 @@ import { createServer } from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import WebSocket from 'ws';
+import { createHash, randomBytes } from 'node:crypto';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -54,7 +55,13 @@ const next = (ws) => new Promise((res, rej) => {
 });
 
 const FILE_NAME = 'very-private-tax-return.pdf';
-const files = [{ id: 'f1', name: FILE_NAME, size: 987654, type: 'application/pdf' }];
+// The server only ever sees ids and sizes; the name travels sealed. It still
+// goes into the sealed blob here, so the no-leak check below means something.
+const files = [{ id: 'f1', size: 987654 }];
+const SEALED = Buffer.from(JSON.stringify([{ id: 'f1', name: FILE_NAME }])).toString('base64url');
+const AUTH = randomBytes(32);
+const auth = AUTH.toString('base64url');
+const verifier = createHash('sha256').update(AUTH).digest('base64url');
 const slugs = [];
 const sockets = [];
 
@@ -69,13 +76,13 @@ try {
   for (let i = 0; i < 2; i++) {
     const up = await open();
     sockets.push(up);
-    up.send(JSON.stringify({ t: 'host', files }));
+    up.send(JSON.stringify({ t: 'host', files, sealed: SEALED, verifier }));
     slugs.push((await next(up)).slug);
   }
   for (const slug of [slugs[0], slugs[0], slugs[1], 'swift-otter-999']) {
     const down = await open();
     sockets.push(down);
-    down.send(JSON.stringify({ t: 'join', slug }));
+    down.send(JSON.stringify({ t: 'join', slug, auth }));
     await next(down);
   }
   await new Promise((r) => setTimeout(r, 200));

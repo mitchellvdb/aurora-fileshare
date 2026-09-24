@@ -19,6 +19,8 @@
     "build:og": "node scripts/build-og.mjs"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "qrcode-generator": "^2.0.4",
     "ws": "^8.18.0"
   },

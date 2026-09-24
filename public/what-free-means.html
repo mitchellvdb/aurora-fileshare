@@ -129,9 +129,11 @@
     </p>
     <p>
       What we do see, because being precise matters more than sounding good: the
-      server briefly holds file names, sizes and types in memory so the
-      recipient knows what they are being offered, and it sees the IP addresses
-      connecting to it, as every web server does, which it uses to rate limit.
+      server briefly holds how many files a share has and how large they are, plus
+      a list of their names that it cannot read, because it is encrypted with a
+      secret only the link carries. It sees the IP addresses connecting to it, as
+      every web server does (and so does Cloudflare, which it runs behind), and
+      uses them to rate limit.
       None of it is written to disk. There is a tip button if the tool saved you
       something, and it is run by <a href="https://aurorahosting.nl">Aurora
       Hosting</a> — so this page is, in part, a shop window. That seems fairer to
