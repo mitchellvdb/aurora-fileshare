@@ -41,6 +41,9 @@ const env = {
   // needs a link, so give the shared server representative values.
   PUBLIC_URL: process.env.PUBLIC_URL ?? 'https://fileshare.aurorahosting.nl',
   DONATE_URL: process.env.DONATE_URL ?? 'https://paypal.me/mvdbosch',
+  // Every suite starts servers of its own; they must not fight over the
+  // operator port. The suite that tests it picks a free one.
+  ADMIN_PORT: process.env.ADMIN_PORT ?? '0',
 };
 
 if (!existsSync(join(ROOT, 'dist/server/index.js'))) {

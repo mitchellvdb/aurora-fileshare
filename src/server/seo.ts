@@ -54,6 +54,13 @@ export const PAGES: Record<string, PageSeo> = {
       + 'file transfer tier, how to tell which one you are using, and ours stated '
       + 'plainly.',
   },
+  'terms.html': {
+    path: '/terms',
+    title: 'Terms of use — Aurora FileShare',
+    description:
+      'What Aurora FileShare may not be used for, what we can and cannot do '
+      + 'about misuse, and how to report a share.',
+  },
   'download.html': {
     path: '/d/',
     title: 'Incoming files — Aurora FileShare',

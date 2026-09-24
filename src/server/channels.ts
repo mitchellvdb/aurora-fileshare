@@ -133,6 +133,20 @@ export class ChannelRegistry {
     }
   }
 
+  /**
+   * Ends a share on the operator's say-so, after a report. Both ends are told,
+   * and the recipient's page aborts any transfer in progress when it hears it.
+   */
+  close(slug: string): boolean {
+    const channel = this.channels.get(slug);
+    if (!channel) return false;
+    const reason = 'This share was closed by the operator.';
+    send(channel.uploader.ws, { t: 'closed', reason });
+    for (const d of channel.downloaders.values()) send(d.ws, { t: 'closed', reason });
+    this.channels.delete(slug);
+    return true;
+  }
+
   private sweep(): void {
     const cutoff = Date.now() - config.channelTtlMs;
     for (const [slug, channel] of this.channels) {

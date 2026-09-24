@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Ends one live share after a report, without restarting the service.
+#
+#   fileshare-close https://fileshare.aurorahosting.nl/d/swift-otter-123
+#   fileshare-close swift-otter-123
+#
+# Both ends are told the operator closed it; the recipient's page aborts any
+# transfer in progress. Talks to the loopback-only admin port, so it has to run
+# inside the container - from the Proxmox host:
+#   pct exec 112 -- fileshare-close <link>
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "usage: fileshare-close <share link or slug>" >&2
+  exit 2
+fi
+
+# Accept the whole link as pasted: take the last path segment, drop any query.
+slug="${1%%[?#]*}"
+slug="${slug%/}"
+slug="${slug##*/}"
+
+port="${ADMIN_PORT:-}"
+if [ -z "$port" ] && [ -r /opt/aurora-fileshare/.env ]; then
+  port=$(sed -n 's/^ADMIN_PORT=//p' /opt/aurora-fileshare/.env | tail -1)
+fi
+port="${port:-8081}"
+
+if curl -fsS -X POST "http://127.0.0.1:${port}/close/${slug}" >/dev/null 2>&1; then
+  echo "closed: ${slug}"
+else
+  echo "no live share called '${slug}' (already ended, expired, or mistyped)" >&2
+  exit 1
+fi

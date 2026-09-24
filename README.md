@@ -198,6 +198,26 @@ moment of a share, and today's running total is not exposed, so the timestamps
 cannot be lined up against an access log to single anyone out. A restart writes
 the partial day, marked as such. `test/usage.test.mjs` asserts all of this.
 
+## Terms, contact and closing a share
+
+`/terms` says what the service may not be used for and how to report misuse.
+`CONTACT_EMAIL` puts a contact address in every footer, in the terms and in the
+FAQ's "How do I report misuse?" answer; the EU Digital Services Act expects an
+intermediary service to publish a point of contact. Without it the sentences
+fall back to a link to Aurora Hosting.
+
+A reported share can be ended without restarting the service (a restart would
+end every share):
+
+```
+fileshare-close https://fileshare.aurorahosting.nl/d/swift-otter-123
+```
+
+It talks to a second listener on `127.0.0.1:${ADMIN_PORT:-8081}`, never on
+`HOST`, so the tunnel cannot reach it. Both ends are told; the recipient's page
+aborts a transfer in progress. The log records that a share was closed, not
+which one. Install with `install -m 755 deploy/fileshare-close /usr/local/bin/`.
+
 ## Cache busting
 
 Bundles and the stylesheet are served under content-hashed names

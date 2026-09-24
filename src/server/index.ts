@@ -72,6 +72,9 @@ const server = createServer(async (req, res) => {
       if (serveDocument(`${slug}.html`, req, res)) return;
     }
   }
+  if (path === '/terms' || path === '/terms.html') {
+    if (serveDocument('terms.html', req, res)) return;
+  }
   if (path === '/faq' || path === '/faq.html' || path === '/docs') {
     if (serveDocument('faq.html', req, res)) return;
   }
@@ -233,6 +236,35 @@ wss.on('connection', (ws: WebSocket, req) => {
   ws.on('close', () => clearInterval(heartbeat));
 });
 
+// --- Operator commands -------------------------------------------------------
+//
+// A second listener, on loopback only, so a reported share can be ended without
+// restarting the service (which would end every share). It is deliberately not
+// on the public port: the tunnel forwards that one to the world. Used by
+// deploy/fileshare-close.
+
+const admin = createServer((req, res) => {
+  const match = /^\/close\/([^/]+)$/.exec(req.url ?? '');
+  if (req.method !== 'POST' || !match) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not found\n');
+    return;
+  }
+  const slug = decodeURIComponent(match[1]!);
+  const closed = isValidSlug(slug) && registry.close(slug);
+  // No slug in the log: the operator has it already, and the log should not
+  // become a list of links.
+  if (closed) console.log('[admin] a share was closed on request');
+  res.writeHead(closed ? 200 : 404, { 'Content-Type': 'text/plain; charset=utf-8' })
+    .end(closed ? 'closed\n' : 'no live share with that link\n');
+});
+// A clash on this port must not take the file sharing down with it.
+admin.on('error', (err) => console.warn(`[aurora-fileshare] admin port unavailable: ${err.message}`));
+if (config.adminPort > 0) {
+  admin.listen(config.adminPort, '127.0.0.1', () => {
+    console.log(`[aurora-fileshare] operator commands on http://127.0.0.1:${config.adminPort}`);
+  });
+}
+
 await loadDocuments(PUBLIC_ROOT);
 
 server.listen(config.port, config.host, () => {
@@ -245,6 +277,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     console.log(`[aurora-fileshare] ${signal} received, shutting down`);
     flushUsage();
     wss.close();
+    admin.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 5000).unref();
   });

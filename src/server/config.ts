@@ -66,6 +66,19 @@ export const config = {
   // network to offer its source to the people using it; a footer link is how.
   sourceUrl: (process.env['SOURCE_URL'] ?? '').trim(),
   donateUrl: (process.env['DONATE_URL'] ?? '').trim(),
+
+  /**
+   * Where people report misuse, and the point of contact the EU Digital
+   * Services Act asks every intermediary service to publish. Shown in the
+   * footer, the FAQ and the terms.
+   */
+  contactEmail: (process.env['CONTACT_EMAIL'] ?? '').trim(),
+
+  /**
+   * Local-only port for operator commands (closing a reported share). Bound to
+   * 127.0.0.1, never to HOST, so the tunnel cannot reach it. 0 disables it.
+   */
+  adminPort: envInt('ADMIN_PORT', 8081),
   donateLabel: (process.env['DONATE_LABEL'] ?? 'Buy me a coffee').trim(),
 
   iceServers: iceServers(),

@@ -78,6 +78,35 @@ function sourceSentence(): string {
     + 'need to publish your changes.';
 }
 
+/** A plain address check - enough to keep a typo out of every page. */
+function contactEmail(): string | null {
+  const email = config.contactEmail;
+  if (!email) return null;
+  if (!/^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(email)) {
+    console.warn(`[aurora-fileshare] CONTACT_EMAIL does not look like an address, ignoring: ${email}`);
+    return null;
+  }
+  return email;
+}
+
+/** The footer's contact link. Empty when CONTACT_EMAIL is unset. */
+function contactLink(): string {
+  const email = contactEmail();
+  if (!email) return '';
+  return `<a href="mailto:${escapeAttribute(email)}">Contact</a>`;
+}
+
+/**
+ * The address inside a sentence (terms, FAQ). Falls back to the company site
+ * so the sentence still reads, and still leads somewhere, without one.
+ */
+function contactAddress(): string {
+  const email = contactEmail();
+  if (!email) return '<a href="https://aurorahosting.nl">Aurora Hosting</a>';
+  const e = escapeAttribute(email);
+  return `<a href="mailto:${e}">${e}</a>`;
+}
+
 /**
  * Body substitutions shared by every document. Applied to the FAQ before its
  * answers are read for structured data, or a placeholder comment would end up
@@ -86,7 +115,9 @@ function sourceSentence(): string {
 function substitute(html: string): string {
   return html
     .split('<!--source-link-->').join(sourceLink())
-    .split('<!--source-sentence-->').join(sourceSentence());
+    .split('<!--source-sentence-->').join(sourceSentence())
+    .split('<!--contact-link-->').join(contactLink())
+    .split('<!--contact-address-->').join(contactAddress());
 }
 
 function donateMeta(): string {
@@ -180,6 +211,9 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
   console.log(donate
     ? `[aurora-fileshare] donate button enabled -> ${safeUrl(config.donateUrl)}`
     : '[aurora-fileshare] donate button disabled (DONATE_URL not set)');
+  if (!contactEmail()) {
+    console.warn('[aurora-fileshare] CONTACT_EMAIL unset: no contact address on the site');
+  }
   if (!publicUrl) {
     console.warn('[aurora-fileshare] PUBLIC_URL unset: no canonical URLs or sitemap');
   }
