@@ -10,6 +10,7 @@ import { ChannelRegistry, newPeer, send, type Peer } from './channels.js';
 import { RateLimiter } from './rate-limit.js';
 import { isValidSlug } from './slug.js';
 import { crawlerSummary, identifyCrawler, recordCrawlerVisit } from './crawlers.js';
+import { flushUsage, recordReceive, recordShare, usageSummary } from './usage.js';
 import { securityHeaders, serveFile } from './static.js';
 import {
   loadDocuments, serveDocument, serveRobots, serveSitemap,
@@ -55,6 +56,7 @@ const server = createServer(async (req, res) => {
       channels: registry.size,
       uptime: process.uptime(),
       crawlers: crawlerSummary(),
+      usage: usageSummary(),
     }));
     return;
   }
@@ -156,6 +158,7 @@ wss.on('connection', (ws: WebSocket, req) => {
           ? msg.password.slice(0, 256)
           : undefined;
         const channel = registry.create(peer, files, password);
+        recordShare();
         send(ws, {
           t: 'hosted',
           slug: channel.slug,
@@ -182,6 +185,7 @@ wss.on('connection', (ws: WebSocket, req) => {
           return;
         }
         const { channel } = result;
+        recordReceive();
         send(ws, {
           t: 'joined',
           peerId: peer.id,
@@ -239,6 +243,7 @@ server.listen(config.port, config.host, () => {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     console.log(`[aurora-fileshare] ${signal} received, shutting down`);
+    flushUsage();
     wss.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 5000).unref();

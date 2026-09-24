@@ -181,6 +181,23 @@ string is written anywhere. `recordCrawlerVisit` has no parameter for an address
 so one cannot be added by accident. The FAQ tells people their address is never
 written down, and the tests assert it stays that way.
 
+## Usage counts
+
+To tell whether anyone uses it, the server counts per day (UTC) how many shares
+were created and how many recipients connected, and writes one line when the
+day is over:
+
+```
+[usage] 2026-09-24: 3 shares, 5 receives
+```
+
+The last 30 finished days are also under `usage` in `/healthz`. That is all.
+`recordShare` and `recordReceive` take no arguments, so nothing - address,
+slug, file name, size - can be attached to a count. Nothing is logged at the
+moment of a share, and today's running total is not exposed, so the timestamps
+cannot be lined up against an access log to single anyone out. A restart writes
+the partial day, marked as such. `test/usage.test.mjs` asserts all of this.
+
 ## Cache busting
 
 Bundles and the stylesheet are served under content-hashed names
