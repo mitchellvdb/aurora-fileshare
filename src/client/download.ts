@@ -1,5 +1,5 @@
 import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
-import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling } from './common.js';
+import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling, uid } from './common.js';
 import { deriveKeys, seal, unseal } from './crypto.js';
 import { renderDonateButton } from './donate.js';
 import { createSink, initSaver, type SaveMode } from './save.js';
@@ -7,13 +7,35 @@ import { FileReceiver, PeerLink, type ActiveDownload } from './transfer.js';
 import { planZip, ZipWriter } from './zip.js';
 
 const signaling = new Signaling();
+const receiver = new FileReceiver(onReceiveProgress);
 let link: PeerLink | null = null;
-let receiver: FileReceiver | null = null;
+let channel: RTCDataChannel | null = null;
 let uploaderId = '';
 let iceServers: RTCIceServerConfig[] = [];
 let saveMode: SaveMode = 'blob';
 let files: FileMeta[] = [];
 let busy = false;
+
+/**
+ * How long we keep trying to get a lost connection back before giving up.
+ * Long enough for a laptop lid, a train tunnel or a router reboot.
+ */
+const RECOVERY_MS = 10 * 60_000;
+/** A connection "disconnected" this long is treated as gone. */
+const STALL_MS = 8_000;
+
+/** Who we are to the sender, across reconnects. Sent sealed, never to the server. */
+const rid = uid();
+let joinedOnce = false;
+/** In the server's channel right now (false after the sender's socket dropped). */
+let inChannel = false;
+let joinPassword: string | undefined;
+let everConnected = false;
+let lostSince: number | null = null;
+let stalledSince: number | null = null;
+let lastJoinTry = 0;
+let lastConnectTry = 0;
+let over = false;
 
 const slug = decodeURIComponent(location.pathname.replace(/^\/d\//, ''));
 // The secret after '#'. Browsers never send it to the server; see crypto.ts.
@@ -55,7 +77,32 @@ function readManifest(sealed: unknown): FileMeta[] | 'ask' | null {
 
 function join(password?: string): void {
   if (!keys) return;
-  signaling.send({ t: 'join', slug, auth: keys.auth, ...(password !== undefined ? { password } : {}) });
+  if (password !== undefined) joinPassword = password;
+  signaling.send({
+    t: 'join', slug, auth: keys.auth,
+    ...(joinPassword !== undefined ? { password: joinPassword } : {}),
+    ...(joinedOnce ? { again: true } : {}),
+  });
+}
+
+/** Sealed to the sender, relayed by a server that cannot read it. */
+function tellSender(data: unknown): void {
+  if (keys && uploaderId) signaling.send({ t: 'signal', to: uploaderId, data: seal(keys.enc, data) });
+}
+
+function connected(): boolean {
+  return channel?.readyState === 'open' && stalledSince === null;
+}
+
+/** The end: nothing will come back. Anything half-done is abandoned. */
+function finish(message: string, kind: 'warn' | 'info' = 'warn'): void {
+  if (over) return;
+  over = true;
+  setStatus(message, kind);
+  receiver.failAll(message);
+  setButtonsDisabled(true);
+  link?.close();
+  signaling.close();
 }
 
 const statusBox = $<HTMLElement>('#status');
@@ -111,19 +158,30 @@ async function main(): Promise<void> {
 }
 
 signaling.on((msg) => {
+  if (over) return;
   switch (msg.t) {
     case 'joined': {
-      clearError();
-      passwordSection.hidden = true;
       uploaderId = msg.uploader;
       iceServers = msg.iceServers;
+      inChannel = true;
+      if (joinedOnce) {
+        // Back after a dropped connection. If the direct link survived there is
+        // nothing to rebuild; the sender only needs our new address.
+        if (!connected()) setupPeer();
+        tellSender({ ctl: 'hello', rid, want: connected() ? 'keep' : 'connect' });
+        return;
+      }
+      clearError();
+      passwordSection.hidden = true;
       const manifest = readManifest(msg.sealed);
       if (!manifest) {
         showError('This share could not be read. The link may be damaged; ask the sender for it again.');
         signaling.close();
         return;
       }
+      joinedOnce = true;
       setupPeer();
+      tellSender({ ctl: 'hello', rid, want: 'connect' });
       if (manifest === 'ask') {
         // The names come later, and only if the sender says yes.
         setStatus('Waiting for the sender to let you in…');
@@ -140,6 +198,7 @@ signaling.on((msg) => {
       const data = unseal<{ ctl?: string; files?: unknown }>(keys.enc, msg.data);
       if (data === null) return;
       if (data.ctl === 'manifest') {
+        if (files.length > 0) return;
         const allowed = cleanFiles(data.files);
         if (!allowed) return;
         files = allowed;
@@ -152,22 +211,35 @@ signaling.on((msg) => {
         return;
       }
       if (data.ctl === 'declined') {
-        setStatus('The sender declined the connection.', 'warn');
-        downloadAll.disabled = true;
-        link?.close();
-        signaling.close();
+        finish('The sender declined the connection.');
+        return;
+      }
+      if (data.ctl === 'bye') {
+        finish('The sender closed their tab, so the share has ended.');
         return;
       }
       void link?.handleSignal(data);
       return;
     }
     case 'closed': {
-      setStatus(msg.reason, 'warn');
-      receiver?.failAll(msg.reason);
-      downloadAll.disabled = true;
+      if (msg.code === 'sender-left') {
+        // Only the sender's line to the server went. A transfer already
+        // running between the two browsers is unaffected; we rejoin once the
+        // sender is back, which the recovery loop takes care of.
+        inChannel = false;
+        if (!connected()) setStatus('The sender lost their connection. Waiting for them to come back…', 'warn');
+        return;
+      }
+      finish(msg.reason);
       return;
     }
     case 'error': {
+      if (joinedOnce) {
+        // Rejoining while the sender is still away answers "not found" until
+        // they are back. The recovery loop tries again; only a lockout is final.
+        if (msg.code === 'locked') finish(msg.message);
+        return;
+      }
       if (msg.code === 'password-required' || msg.code === 'bad-password') {
         passwordSection.hidden = false;
         setStatus('This share is protected.', 'warn');
@@ -182,6 +254,15 @@ signaling.on((msg) => {
   }
 });
 
+// Our own line to the server dropping changes nothing for a running transfer;
+// the socket reconnects by itself and we rejoin.
+signaling.onDown(() => {
+  inChannel = false;
+});
+signaling.onUp(() => {
+  if (!over && keys) join();
+});
+
 $<HTMLFormElement>('#password-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
   clearError();
@@ -191,46 +272,106 @@ $<HTMLFormElement>('#password-form').addEventListener('submit', (ev) => {
 
 // --- Peer connection --------------------------------------------------------
 
+/** Builds a fresh connection to the sender, replacing any previous one. */
 function setupPeer(): void {
-  link = new PeerLink(iceServers, (data) => {
-    if (keys) signaling.send({ t: 'signal', to: uploaderId, data: seal(keys.enc, data) });
-  });
+  link?.close();
+  channel = null;
+  stalledSince = null;
+  const current = new PeerLink(iceServers, (data) => tellSender(data));
+  link = current;
 
   // The sender opens the channel; we just answer and wait for it.
-  link.pc.addEventListener('datachannel', (ev) => {
-    const channel = ev.channel;
-    channel.binaryType = 'arraybuffer';
+  current.pc.addEventListener('datachannel', (ev) => {
+    const dc = ev.channel;
+    dc.binaryType = 'arraybuffer';
 
-    receiver = new FileReceiver(channel, onReceiveProgress);
-
-    channel.addEventListener('open', () => {
-      setStatus('Connected directly to the sender. Nothing passes through our servers.', 'good');
-      downloadAll.disabled = false;
-      for (const button of fileList.querySelectorAll<HTMLButtonElement>('button.download')) {
-        button.disabled = false;
-      }
+    dc.addEventListener('open', () => {
+      if (link !== current) return;
+      channel = dc;
+      const resuming = lostSince !== null && receiver.pending;
+      everConnected = true;
+      lostSince = null;
+      receiver.attach(dc);
+      setStatus(resuming
+        ? `Reconnected. Continuing from ${formatBytes(receiver.pending?.received ?? 0)}.`
+        : 'Connected directly to the sender. Nothing passes through our servers.', 'good');
+      if (!busy) setButtonsDisabled(false);
     });
 
-    channel.addEventListener('close', () => {
-      setStatus('The sender disconnected.', 'warn');
-      receiver?.failAll('The sender disconnected.');
-      downloadAll.disabled = true;
+    dc.addEventListener('close', () => {
+      if (link !== current) return;
+      connectionLost();
     });
   });
 
-  link.pc.addEventListener('connectionstatechange', () => {
-    if (link?.pc.connectionState === 'failed') {
-      setStatus(
-        'Could not open a direct connection. Both networks are blocking peer-to-peer traffic.',
-        'warn',
-      );
-      showError(
-        'This usually means one side is on a restrictive network (some corporate or mobile networks). '
-        + 'Try a different network, or ask the sender to try again.',
-      );
+  current.pc.addEventListener('connectionstatechange', () => {
+    if (link !== current) return;
+    const state = current.pc.connectionState;
+    // "disconnected" often heals by itself within seconds; the loop below
+    // only gives up on it after STALL_MS.
+    stalledSince = state === 'disconnected' ? (stalledSince ?? Date.now()) : null;
+    if (state !== 'failed') return;
+    if (everConnected) {
+      connectionLost();
+      return;
     }
+    setStatus(
+      'Could not open a direct connection. Both networks are blocking peer-to-peer traffic.',
+      'warn',
+    );
+    showError(
+      'This usually means one side is on a restrictive network (some corporate or mobile networks). '
+      + 'Try a different network, or ask the sender to try again.',
+    );
   });
 }
+
+function connectionLost(): void {
+  if (over || lostSince !== null) return;
+  lostSince = Date.now();
+  channel = null;
+  receiver.detach();
+  if (!busy) setButtonsDisabled(true);
+  const pending = receiver.pending;
+  setStatus(pending
+    ? `Connection lost at ${formatBytes(pending.received)}. Reconnecting — the download will continue where it stopped…`
+    : 'Connection lost. Reconnecting…', 'warn');
+}
+
+/**
+ * Runs every few seconds once we have joined, and gets back whatever went
+ * missing: our place in the server's channel, and the direct connection.
+ */
+function recover(): void {
+  if (over || !joinedOnce) return;
+  const now = Date.now();
+
+  if (everConnected && stalledSince !== null && now - stalledSince > STALL_MS) {
+    stalledSince = null;
+    connectionLost();
+  }
+  if (lostSince !== null && now - lostSince > RECOVERY_MS) {
+    finish('Lost the connection to the sender and could not get it back.');
+    return;
+  }
+  if (!signaling.isOpen) return; // it reconnects by itself
+
+  if (!inChannel) {
+    if (now - lastJoinTry > 6_000) {
+      lastJoinTry = now;
+      join();
+    }
+    return;
+  }
+  if (lostSince !== null && now - lastConnectTry > 15_000) {
+    lastConnectTry = now;
+    setupPeer();
+    tellSender({ ctl: 'hello', rid, want: 'connect' });
+  }
+}
+window.setInterval(recover, 3_000);
+
+receiver.onBye = () => finish('The sender closed their tab, so the share has ended.');
 
 // --- File list and downloads ------------------------------------------------
 
@@ -280,7 +421,7 @@ function onReceiveProgress(d: ActiveDownload): void {
 }
 
 async function downloadOne(file: FileMeta): Promise<void> {
-  if (!receiver || busy) return;
+  if (busy || !connected()) return;
   busy = true;
   setButtonsDisabled(true);
 
@@ -298,7 +439,7 @@ async function downloadOne(file: FileMeta): Promise<void> {
     if (row) row.status.textContent = `Failed: ${(err as Error).message}`;
   } finally {
     busy = false;
-    setButtonsDisabled(false);
+    setButtonsDisabled(!connected());
   }
 }
 
@@ -317,7 +458,7 @@ downloadAll.addEventListener('click', () => void downloadAllAsZip());
  * let alone the whole archive, sit in memory.
  */
 async function downloadAllAsZip(): Promise<void> {
-  if (!receiver || busy) return;
+  if (busy || !connected()) return;
   busy = true;
   setButtonsDisabled(true);
 
@@ -352,7 +493,7 @@ async function downloadAllAsZip(): Promise<void> {
     showError(`Could not build ${archiveName}: ${message}`);
   } finally {
     busy = false;
-    setButtonsDisabled(false);
+    setButtonsDisabled(!connected());
   }
 }
 

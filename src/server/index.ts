@@ -168,8 +168,10 @@ wss.on('connection', (ws: WebSocket, req) => {
         const password = typeof msg.password === 'string' && msg.password.length > 0
           ? msg.password.slice(0, 256)
           : undefined;
-        const channel = registry.create(peer, files, msg.sealed, verifier, password);
-        recordShare();
+        const wanted = isValidSlug(msg.slug) ? msg.slug : undefined;
+        const channel = registry.create(peer, files, msg.sealed, verifier, password, wanted);
+        // A share re-registered after a dropped connection is not a new share.
+        if (!wanted) recordShare();
         send(ws, {
           t: 'hosted',
           slug: channel.slug,
@@ -208,7 +210,7 @@ wss.on('connection', (ws: WebSocket, req) => {
           return;
         }
         const { channel } = result;
-        recordReceive();
+        if (msg.again !== true) recordReceive();
         send(ws, {
           t: 'joined',
           peerId: peer.id,

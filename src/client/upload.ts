@@ -1,4 +1,4 @@
-import type { FileMeta, FileStub, RTCIceServerConfig } from '../shared/protocol.js';
+import type { ClientMessage, FileMeta, FileStub, RTCIceServerConfig } from '../shared/protocol.js';
 import { MAX_FILES } from '../shared/protocol.js';
 import {
   $, copyToClipboard, el, formatBytes, formatRate, RateMeter, Signaling, uid,
@@ -9,10 +9,19 @@ import { renderQr } from './qr.js';
 import { FileSender, PeerLink, type SendProgress } from './transfer.js';
 import { describeTransport, summarise } from './diagnostics.js';
 
+/**
+ * Someone receiving files. Keyed by `rid`, an id their page picks and sends us
+ * sealed, because their address on the server (peerId) changes every time
+ * their connection to it drops and comes back. The direct connection can
+ * outlive that, or be rebuilt under the same row when it does not.
+ */
 interface Recipient {
-  peerId: string;
-  link: PeerLink;
+  rid: string;
+  /** Current address on the server; null while they are away from it. */
+  peerId: string | null;
+  link: PeerLink | null;
   channel: RTCDataChannel | null;
+  everConnected: boolean;
   row: HTMLElement;
   bar: HTMLElement;
   status: HTMLElement;
@@ -24,9 +33,15 @@ interface Recipient {
 
 const selected = new Map<string, File>();
 const recipients = new Map<string, Recipient>();
+/** Server address -> rid, for routing what the server relays. */
+const peerRid = new Map<string, string>();
 const signaling = new Signaling();
-/** People who opened the link and are waiting for the sender's say-so. */
-const pending = new Map<string, HTMLElement>();
+/** People who opened the link and are waiting for the sender's say-so, by rid. */
+const pending = new Map<string, { peerId: string; row: HTMLElement }>();
+/** What we registered, kept so it can be registered again after a drop. */
+let hosting: Extract<ClientMessage, { t: 'host' }> | null = null;
+let slug = '';
+let ended = false;
 let iceServers: RTCIceServerConfig[] = [];
 let shareUrl = '';
 let keys: ShareKeys | null = null;
@@ -55,6 +70,12 @@ const approveInput = $<HTMLInputElement>('#approve');
 const pickerSection = $<HTMLElement>('#picker');
 const shareSection = $<HTMLElement>('#share');
 const errorBox = $<HTMLElement>('#error');
+const serverNote = $<HTMLElement>('#server-note');
+
+function noteServer(text: string | null): void {
+  serverNote.textContent = text ?? '';
+  serverNote.hidden = text === null;
+}
 
 function showError(message: string): void {
   errorBox.textContent = message;
@@ -177,50 +198,100 @@ async function startShare(): Promise<void> {
   const password = passwordInput.value.trim();
   // Asking first also keeps the file names back: a leaked link then shows
   // nothing at all until the sender lets that person in.
-  signaling.send({
+  hosting = {
     t: 'host', files: stubs, sealed: seal(keys.enc, askFirst ? { approval: true } : meta),
     verifier: keys.verifier,
     ...(password ? { password } : {}),
-  });
+  };
+  signaling.send(hosting);
 }
 
+/**
+ * After our line to the server dropped - or the server restarted - register
+ * the same share again under the same slug, so the link already handed out
+ * keeps working. Transfers between the browsers never noticed.
+ */
+function rehost(): void {
+  if (!hosting || ended) return;
+  signaling.send({ ...hosting, slug });
+}
+
+signaling.onDown(() => {
+  if (ended) return;
+  noteServer('Lost the connection to the server. Reconnecting… Transfers already running carry on.');
+  peerRid.clear();
+  for (const r of recipients.values()) r.peerId = null;
+  // Anyone still waiting to be let in will knock again once we are back.
+  for (const { row } of pending.values()) row.remove();
+  pending.clear();
+  updateRecipientCount();
+});
+signaling.onUp(rehost);
+
 signaling.on((msg) => {
+  if (ended) return;
   switch (msg.t) {
     case 'hosted': {
       iceServers = msg.iceServers;
+      const first = slug === '';
+      const changed = !first && msg.slug !== slug;
+      slug = msg.slug;
       // The secret rides in the fragment, which browsers never send to a server.
       shareUrl = `${location.origin}/d/${msg.slug}#${keys?.secret ?? ''}`;
-      showShareScreen();
+      if (first || changed) showShareScreen();
+      noteServer(changed
+        ? 'The server gave this share a new link after a restart. Send the new one; '
+          + 'transfers already running are not affected.'
+        : null);
       return;
     }
-    case 'peer-join': {
-      if (askFirst) askAbout(msg.peerId);
-      else addRecipient(msg.peerId);
+    case 'peer-join':
+      // Nothing to do until their page says who it is (see onHello).
       return;
-    }
     case 'peer-leave': {
-      pending.get(msg.peerId)?.remove();
-      pending.delete(msg.peerId);
-      const recipient = recipients.get(msg.peerId);
-      if (recipient) {
-        recipient.link.close();
-        recipient.row.remove();
-        recipients.delete(msg.peerId);
+      const rid = peerRid.get(msg.peerId);
+      peerRid.delete(msg.peerId);
+      if (!rid) return;
+      const waiting = pending.get(rid);
+      if (waiting?.peerId === msg.peerId) {
+        waiting.row.remove();
+        pending.delete(rid);
       }
+      // Their line to the server went; a direct connection may well live on.
+      const recipient = recipients.get(rid);
+      if (recipient?.peerId === msg.peerId) recipient.peerId = null;
       updateRecipientCount();
       return;
     }
     case 'signal': {
       // Anything that does not decrypt was not written by a holder of the link.
-      const data = keys ? unseal<unknown>(keys.enc, msg.data) : null;
-      if (data !== null) void recipients.get(msg.from)?.link.handleSignal(data);
+      const data = keys ? unseal<Record<string, unknown>>(keys.enc, msg.data) : null;
+      if (data === null || typeof data !== 'object') return;
+      if (data['ctl'] === 'hello') {
+        onHello(msg.from, data['rid'], data['want']);
+        return;
+      }
+      const rid = peerRid.get(msg.from);
+      if (rid) void recipients.get(rid)?.link?.handleSignal(data);
       return;
     }
     case 'closed': {
+      // Closed by the operator, locked or expired: final. Stop sending too.
+      ended = true;
+      noteServer(null);
       showError(msg.reason);
+      for (const r of recipients.values()) r.link?.close();
+      signaling.close();
       return;
     }
     case 'error': {
+      if (slug) {
+        // Registering again failed (rate limit, server full). Try once more
+        // shortly; running transfers do not depend on it.
+        noteServer(`${msg.message} Trying again shortly…`);
+        window.setTimeout(rehost, 10_000);
+        return;
+      }
       showError(msg.message);
       startButton.disabled = false;
       renderFileList();
@@ -228,6 +299,31 @@ signaling.on((msg) => {
     }
   }
 });
+
+/**
+ * A recipient's page introduces itself - on first arrival, and again after
+ * any reconnect. `want` is "connect" when it needs a (new) direct connection
+ * and "keep" when its connection survived and it only has a new address.
+ */
+function onHello(peerId: string, rid: unknown, want: unknown): void {
+  if (typeof rid !== 'string' || !/^[0-9a-f-]{36}$/.test(rid)) return;
+  peerRid.set(peerId, rid);
+
+  const known = recipients.get(rid);
+  if (known) {
+    known.peerId = peerId;
+    if (want === 'connect') connect(known);
+    return;
+  }
+  const waiting = pending.get(rid);
+  if (waiting) {
+    waiting.peerId = peerId;
+    sendSealed(peerId, { ctl: 'wait' });
+    return;
+  }
+  if (askFirst) askAbout(peerId, rid);
+  else addRecipient(peerId, rid);
+}
 
 function showShareScreen(): void {
   pickerSection.hidden = true;
@@ -263,7 +359,7 @@ $<HTMLButtonElement>('#copy-link').addEventListener('click', async (ev) => {
  * the sender allows it. The newcomer's page is told to wait, through the same
  * sealed channel, so the server cannot fake an approval either.
  */
-function askAbout(peerId: string): void {
+function askAbout(peerId: string, rid: string): void {
   sendSealed(peerId, { ctl: 'wait' });
 
   const allow = el('button', { class: 'btn', type: 'button' }, 'Allow');
@@ -276,20 +372,22 @@ function askAbout(peerId: string): void {
     el('div', { class: 'approve-actions' }, allow, decline),
   );
   $<HTMLElement>('#recipients').append(row);
-  pending.set(peerId, row);
+  pending.set(rid, { peerId, row });
 
-  const settle = (): void => {
+  // Their address may have changed while the question was on screen.
+  const settle = (): string => {
+    const current = pending.get(rid)?.peerId ?? peerId;
     row.remove();
-    pending.delete(peerId);
+    pending.delete(rid);
+    return current;
   };
   allow.addEventListener('click', () => {
-    settle();
-    sendSealed(peerId, { ctl: 'manifest', files: manifest });
-    addRecipient(peerId);
+    const current = settle();
+    sendSealed(current, { ctl: 'manifest', files: manifest });
+    addRecipient(current, rid);
   });
   decline.addEventListener('click', () => {
-    settle();
-    sendSealed(peerId, { ctl: 'declined' });
+    sendSealed(settle(), { ctl: 'declined' });
     updateRecipientCount();
   });
   updateRecipientCount();
@@ -297,7 +395,7 @@ function askAbout(peerId: string): void {
 
 // --- One peer connection per recipient --------------------------------------
 
-function addRecipient(peerId: string): void {
+function addRecipient(peerId: string, rid: string): void {
   const bar = el('span', { class: 'bar-fill' });
   const percent = el('span', { class: 'xfer-pct' }, '0%');
   const status = el('span', { class: 'recipient-status' }, 'Connecting…');
@@ -312,41 +410,62 @@ function addRecipient(peerId: string): void {
   );
   $<HTMLElement>('#recipients').append(row);
 
-  const link = new PeerLink(iceServers, (data) => sendSealed(peerId, data));
-
   const recipient: Recipient = {
-    peerId, link, channel: null, row, bar, status, percent,
+    rid, peerId, link: null, channel: null, everConnected: false, row, bar, status, percent,
     meter: new RateMeter(), label, sender: null,
   };
-  recipients.set(peerId, recipient);
+  recipients.set(rid, recipient);
+  connect(recipient);
+  updateRecipientCount();
+}
+
+/**
+ * Opens a direct connection to a recipient, replacing any earlier one. Called
+ * once on arrival, and again whenever their page asks after losing it - the
+ * recipient then requests the rest of the file from where it stopped.
+ */
+function connect(r: Recipient): void {
+  r.link?.close();
+  const link = new PeerLink(iceServers, (data) => {
+    if (r.peerId) sendSealed(r.peerId, data);
+  });
+  r.link = link;
+  if (r.everConnected) r.status.textContent = 'Reconnecting…';
 
   const channel = link.pc.createDataChannel('transfer', { ordered: true });
   channel.binaryType = 'arraybuffer';
-  recipient.channel = channel;
+  r.channel = channel;
 
   channel.addEventListener('open', () => {
-    status.textContent = 'Connected · waiting for their pick';
-    row.classList.add('connected');
+    if (r.link !== link) return;
+    r.status.textContent = r.everConnected ? 'Reconnected' : 'Connected · waiting for their pick';
+    r.everConnected = true;
+    r.row.classList.add('connected');
+    r.row.classList.remove('failed');
   });
   channel.addEventListener('close', () => {
-    status.textContent = 'Disconnected';
-    row.classList.remove('connected');
+    if (r.link !== link) return;
+    r.status.textContent = r.everConnected
+      ? 'Connection lost — waiting for them to reconnect…'
+      : 'Disconnected';
+    r.row.classList.remove('connected');
   });
 
-  recipient.sender = new FileSender(
-    channel, selected, (p: SendProgress) => onSendProgress(recipient, p), link.pc,
+  r.sender = new FileSender(
+    channel, selected, (p: SendProgress) => onSendProgress(r, p), link.pc,
   );
 
   link.pc.addEventListener('connectionstatechange', () => {
-    const state = link.pc.connectionState;
-    if (state === 'failed') {
-      status.textContent = 'Connection failed — their network blocked the direct route';
-      row.classList.add('failed');
+    if (r.link !== link || link.pc.connectionState !== 'failed') return;
+    if (r.everConnected) {
+      r.status.textContent = 'Connection lost — waiting for them to reconnect…';
+      return;
     }
+    r.status.textContent = 'Connection failed — their network blocked the direct route';
+    r.row.classList.add('failed');
   });
 
   void link.createOffer();
-  updateRecipientCount();
 }
 
 function onSendProgress(recipient: Recipient, p: SendProgress): void {
@@ -368,6 +487,7 @@ function onSendProgress(recipient: Recipient, p: SendProgress): void {
 async function reportTransfer(recipient: Recipient): Promise<void> {
   const stats = recipient.sender?.lastTransfer;
   if (!stats) return;
+  if (!recipient.link) return;
   const transport = await describeTransport(recipient.link.pc);
   const lines = summarise(stats, transport);
   // The detail goes to the console; the headline verdict goes on the row.
@@ -389,6 +509,16 @@ window.addEventListener('beforeunload', (ev) => {
   if (recipients.size > 0) {
     ev.preventDefault();
     ev.returnValue = '';
+  }
+});
+
+// And once it is closing, say so - both ways, as neither is guaranteed to get
+// out in time - so recipients stop waiting to resume instead of trying for
+// ten minutes.
+window.addEventListener('pagehide', () => {
+  for (const r of recipients.values()) {
+    r.sender?.sayBye();
+    if (r.peerId) sendSealed(r.peerId, { ctl: 'bye' });
   }
 });
 

@@ -70,20 +70,69 @@ export class RateMeter {
 
 export type ServerHandler = (msg: ServerMessage) => void;
 
+/**
+ * The WebSocket to our server, which only ever carries signalling.
+ *
+ * Losing it must not end a transfer: once two browsers are connected the file
+ * flows between them directly and the server is not involved. So a dropped
+ * socket is not reported as the share ending. It is reported as "down", the
+ * socket is reopened with growing pauses, and "up" tells the page to
+ * re-register (sender) or rejoin (recipient) - which is also what keeps a
+ * server restart from breaking anything.
+ */
 export class Signaling {
   private ws: WebSocket | null = null;
   private readonly handlers = new Set<ServerHandler>();
+  private readonly downHandlers = new Set<() => void>();
+  private readonly upHandlers = new Set<() => void>();
   private keepAlive: number | undefined;
   private closedByUs = false;
+  private retry = 0;
+  private retryTimer: number | undefined;
+
+  get isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /** The socket dropped; a reconnect is already scheduled. */
+  onDown(handler: () => void): void {
+    this.downHandlers.add(handler);
+  }
+
+  /** The socket came back after a drop. Not called for the first connect. */
+  onUp(handler: () => void): void {
+    this.upHandlers.add(handler);
+  }
+
+  private reconnect(): void {
+    if (this.closedByUs) return;
+    // 1, 2, 4, 8, then every 15 seconds.
+    const delay = Math.min(15_000, 1000 * 2 ** this.retry);
+    this.retry += 1;
+    window.clearTimeout(this.retryTimer);
+    this.retryTimer = window.setTimeout(() => {
+      this.open().then(() => {
+        this.retry = 0;
+        for (const handler of this.upHandlers) handler();
+      }, () => this.reconnect());
+    }, delay);
+  }
 
   connect(): Promise<void> {
+    return this.open();
+  }
+
+  private open(): Promise<void> {
     return new Promise((resolvePromise, rejectPromise) => {
       const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${scheme}//${location.host}/ws`);
       this.ws = ws;
+      let opened = false;
 
       ws.addEventListener('open', () => {
+        opened = true;
         // Keeps the channel marked active and holds idle proxies open.
+        window.clearInterval(this.keepAlive);
         this.keepAlive = window.setInterval(() => this.send({ t: 'ping' }), 45_000);
         resolvePromise();
       });
@@ -98,15 +147,17 @@ export class Signaling {
         for (const handler of this.handlers) handler(msg);
       });
 
-      ws.addEventListener('error', () => rejectPromise(new Error('Could not reach the server.')));
+      ws.addEventListener('error', () => {
+        if (!opened) rejectPromise(new Error('Could not reach the server.'));
+      });
 
       ws.addEventListener('close', () => {
+        // A socket that never opened is the caller's failure to handle.
+        if (!opened || this.ws !== ws) return;
         window.clearInterval(this.keepAlive);
-        if (!this.closedByUs) {
-          for (const handler of this.handlers) {
-            handler({ t: 'closed', reason: 'Connection to the server was lost.' });
-          }
-        }
+        if (this.closedByUs) return;
+        for (const handler of this.downHandlers) handler();
+        this.reconnect();
       });
     });
   }
@@ -122,6 +173,7 @@ export class Signaling {
   close(): void {
     this.closedByUs = true;
     window.clearInterval(this.keepAlive);
+    window.clearTimeout(this.retryTimer);
     this.ws?.close();
   }
 }

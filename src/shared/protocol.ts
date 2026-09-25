@@ -39,9 +39,21 @@ export type ClientMessage =
    * manifest, encrypted; `verifier` is the SHA-256 of the join token derived
    * from the link's secret.
    */
-  | { t: 'host'; files: FileStub[]; sealed: string; verifier: string; password?: string }
-  /** Downloader asks to join an existing slug, proving it holds the link's secret. */
-  | { t: 'join'; slug: string; auth: string; password?: string }
+  | {
+    t: 'host'; files: FileStub[]; sealed: string; verifier: string; password?: string;
+    /**
+     * Set when the sender re-registers a share it already had, after losing
+     * its connection to the server (or the server restarting). The server
+     * reuses the slug if it is free, so the link keeps working.
+     */
+    slug?: string;
+  }
+  /**
+   * Downloader asks to join an existing slug, proving it holds the link's
+   * secret. `again` marks a rejoin after a lost connection, so it is not
+   * counted as another recipient.
+   */
+  | { t: 'join'; slug: string; auth: string; password?: string; again?: boolean }
   /** Relay a sealed SDP/ICE payload to another peer in the same channel. */
   | { t: 'signal'; to: PeerId; data: string }
   /** Uploader reports live progress so the server can surface it (optional). */
@@ -60,10 +72,16 @@ export type ServerMessage =
   | { t: 'peer-leave'; peerId: PeerId }
   /** Relayed sealed payload. */
   | { t: 'signal'; from: PeerId; data: string }
-  /** The uploader closed the tab; the channel is gone. */
-  | { t: 'closed'; reason: string }
+  /**
+   * The channel is gone. `sender-left` means only the sender's connection to
+   * this server dropped: a transfer already running between the browsers can
+   * carry on, and the sender may come back. The others are final.
+   */
+  | { t: 'closed'; reason: string; code: CloseCode }
   | { t: 'pong' }
   | { t: 'error'; code: ErrorCode; message: string };
+
+export type CloseCode = 'sender-left' | 'operator' | 'locked' | 'expired';
 
 export type ErrorCode =
   | 'not-found'
@@ -87,16 +105,21 @@ export interface RTCIceServerConfig {
 // --- Transfer: uploader <-> downloader over RTCDataChannel ------------------
 
 export type TransferMessage =
-  /** Downloader requests one file. */
-  | { t: 'req'; reqId: string; fileId: string }
-  /** Uploader is about to stream the file; binary chunks follow. */
-  | { t: 'begin'; reqId: string; fileId: string; name: string; size: number; type: string }
+  /**
+   * Downloader requests one file, starting at byte `from` (0 when absent).
+   * A non-zero `from` resumes a transfer that a dropped connection cut short.
+   */
+  | { t: 'req'; reqId: string; fileId: string; from?: number }
+  /** Uploader is about to stream the file from byte `from`; binary chunks follow. */
+  | { t: 'begin'; reqId: string; fileId: string; name: string; size: number; type: string; from: number }
   /** All chunks for reqId have been sent. */
   | { t: 'end'; reqId: string }
   /** Uploader refused or hit an error. */
   | { t: 'deny'; reqId: string; reason: string }
   /** Downloader aborted a transfer in flight. */
-  | { t: 'cancel'; reqId: string };
+  | { t: 'cancel'; reqId: string }
+  /** The sender is closing the tab: nothing will resume, stop waiting. */
+  | { t: 'bye' };
 
 /**
  * Largest single data-channel message we will send.

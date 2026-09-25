@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import type { FileStub, PeerId, ServerMessage } from '../shared/protocol.js';
+import type { CloseCode, FileStub, PeerId, ServerMessage } from '../shared/protocol.js';
 import { config } from './config.js';
 import { generateSlug } from './slug.js';
 
@@ -83,9 +83,15 @@ export class ChannelRegistry {
     return this.channels.size >= config.maxChannels;
   }
 
-  create(uploader: Peer, files: FileStub[], sealed: string, verifier: Buffer, password?: string): Channel {
+  create(
+    uploader: Peer, files: FileStub[], sealed: string, verifier: Buffer, password?: string,
+    wanted?: string,
+  ): Channel {
+    // A sender coming back after a dropped connection asks for its old slug so
+    // the link it already handed out keeps working. Only if it is free: a live
+    // share is never taken over.
+    let slug = wanted && !this.channels.has(wanted) ? wanted : generateSlug();
     // Retry on the astronomically unlikely slug collision rather than trusting luck.
-    let slug = generateSlug();
     for (let i = 0; this.channels.has(slug) && i < 10; i++) slug = generateSlug();
 
     const now = Date.now();
@@ -132,7 +138,7 @@ export class ChannelRegistry {
       if (!passwordMatches(channel.password, password)) {
         channel.badPasswords += 1;
         if (channel.badPasswords >= MAX_BAD_PASSWORDS) {
-          this.end(slug, `Someone entered a wrong password ${MAX_BAD_PASSWORDS} times, so this `
+          this.end(slug, 'locked', `Someone entered a wrong password ${MAX_BAD_PASSWORDS} times, so this `
             + 'share was closed to protect it. Create a new one if you still want to send.');
           return { ok: false, code: 'locked' };
         }
@@ -165,8 +171,16 @@ export class ChannelRegistry {
     if (!channel) return;
 
     if (peer.isUploader) {
+      // All we know is that the sender's connection to us is gone. Their tab
+      // may still be open, and a transfer between the browsers still running,
+      // so recipients are told it is the server link that went - not that the
+      // share is over. They can join again once the sender is back.
       for (const downloader of channel.downloaders.values()) {
-        send(downloader.ws, { t: 'closed', reason: 'The sender closed their tab.' });
+        downloader.slug = null;
+        send(downloader.ws, {
+          t: 'closed', code: 'sender-left',
+          reason: 'The sender lost their connection to the server.',
+        });
       }
       this.channels.delete(peer.slug);
     } else {
@@ -181,15 +195,19 @@ export class ChannelRegistry {
    * and the recipient's page aborts any transfer in progress when it hears it.
    */
   close(slug: string): boolean {
-    return this.end(slug, 'This share was closed by the operator.');
+    return this.end(slug, 'operator', 'This share was closed by the operator.');
   }
 
-  /** Ends a share, telling everyone in it why. */
-  private end(slug: string, reason: string): boolean {
+  /** Ends a share for good, telling everyone in it why. */
+  private end(slug: string, code: CloseCode, reason: string): boolean {
     const channel = this.channels.get(slug);
     if (!channel) return false;
-    send(channel.uploader.ws, { t: 'closed', reason });
-    for (const d of channel.downloaders.values()) send(d.ws, { t: 'closed', reason });
+    send(channel.uploader.ws, { t: 'closed', code, reason });
+    for (const d of channel.downloaders.values()) {
+      d.slug = null;
+      send(d.ws, { t: 'closed', code, reason });
+    }
+    channel.uploader.slug = null;
     this.channels.delete(slug);
     return true;
   }
@@ -197,13 +215,7 @@ export class ChannelRegistry {
   private sweep(): void {
     const cutoff = Date.now() - config.channelTtlMs;
     for (const [slug, channel] of this.channels) {
-      if (channel.lastActivity < cutoff) {
-        send(channel.uploader.ws, { t: 'closed', reason: 'This share expired.' });
-        for (const d of channel.downloaders.values()) {
-          send(d.ws, { t: 'closed', reason: 'This share expired.' });
-        }
-        this.channels.delete(slug);
-      }
+      if (channel.lastActivity < cutoff) this.end(slug, 'expired', 'This share expired.');
     }
   }
 }

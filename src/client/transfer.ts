@@ -133,13 +133,18 @@ export class FileSender {
       } catch {
         return;
       }
-      if (msg.t === 'req') this.enqueue(msg.reqId, msg.fileId);
+      if (msg.t === 'req') this.enqueue(msg.reqId, msg.fileId, msg.from ?? 0);
       else if (msg.t === 'cancel') this.cancelled.add(msg.reqId);
     });
   }
 
-  private enqueue(reqId: string, fileId: string): void {
-    this.queue = this.queue.then(() => this.sendFile(reqId, fileId)).catch((err) => {
+  /** Tells the other side nothing will resume. Best effort: the tab is closing. */
+  sayBye(): void {
+    this.reply({ t: 'bye' });
+  }
+
+  private enqueue(reqId: string, fileId: string, from: number): void {
+    this.queue = this.queue.then(() => this.sendFile(reqId, fileId, from)).catch((err) => {
       this.reply({ t: 'deny', reqId, reason: String(err) });
     });
   }
@@ -208,16 +213,25 @@ export class FileSender {
     return file.slice(start, Math.min(start + READ_BLOCK_SIZE, file.size)).arrayBuffer();
   }
 
-  private async sendFile(reqId: string, fileId: string): Promise<void> {
+  /**
+   * Streams one file from byte `from`. A non-zero start is a resume: the
+   * connection dropped part way and the recipient already has everything
+   * before that byte, so there is no reason to send it again.
+   */
+  private async sendFile(reqId: string, fileId: string, from: number): Promise<void> {
     const file = this.files.get(fileId);
     if (!file) {
       this.reply({ t: 'deny', reqId, reason: 'File is no longer available.' });
       return;
     }
+    if (!Number.isSafeInteger(from) || from < 0 || from > file.size) {
+      this.reply({ t: 'deny', reqId, reason: 'Invalid resume position.' });
+      return;
+    }
 
     this.reply({
       t: 'begin', reqId, fileId,
-      name: file.name, size: file.size, type: file.type,
+      name: file.name, size: file.size, type: file.type, from,
     });
 
     const chunkSize = this.chunkSize();
@@ -230,9 +244,9 @@ export class FileSender {
     // disk latency overlaps the network rather than adding to it. Reading a
     // block at a time - instead of a message at a time - also means peak
     // memory stays flat no matter how large the file is.
-    let offset = 0;
+    let offset = from;
     let inFlight: Promise<ArrayBuffer> | null =
-      file.size > 0 ? this.readBlock(file, 0) : null;
+      from < file.size ? this.readBlock(file, from) : null;
 
     while (inFlight) {
       const block = new Uint8Array(await inFlight);
@@ -269,10 +283,11 @@ export class FileSender {
     // Everything is queued; the transfer is not finished until it is drained.
     await this.flush();
     const seconds = (performance.now() - startedAt) / 1000;
+    const bytes = file.size - from;
     this.lastStats = {
-      bytes: file.size,
+      bytes,
       seconds,
-      bytesPerSecond: seconds > 0 ? file.size / seconds : 0,
+      bytesPerSecond: seconds > 0 ? bytes / seconds : 0,
       starvedPercent: this.sends > 0 ? Math.round((this.starvedSends / this.sends) * 100) : 0,
       messageBytes: chunkSize,
     };
@@ -300,13 +315,27 @@ export interface ActiveDownload {
   sink: ReceiveSink;
 }
 
+/** One requested file. Survives a dropped connection; see FileReceiver. */
+interface Request extends ActiveDownload {
+  /** Set once the sender's "begin" for the current reqId has arrived. */
+  started: boolean;
+  resolve: () => void;
+  reject: (e: Error) => void;
+}
+
 /**
- * Consumes one data channel. Binary messages always belong to the transfer
- * announced by the most recent "begin", because the sender serialises them.
+ * Receives files over a data channel - and, when that channel dies part way,
+ * over the next one.
+ *
+ * The request in progress outlives its channel: its sink stays open and its
+ * byte count stays put. When a new channel is attached, the receiver asks the
+ * sender to continue from the first byte it does not have. Only bytes that
+ * reached the sink are counted, so whatever was still in flight on the old
+ * channel is simply asked for again: no gap, no duplicate.
  */
 export class FileReceiver {
-  private active: ActiveDownload | null = null;
-  private pendingSinks = new Map<string, { sink: ReceiveSink; resolve: () => void; reject: (e: Error) => void }>();
+  private dc: RTCDataChannel | null = null;
+  private current: Request | null = null;
 
   /**
    * Message events fire independently of our async handling, so every message
@@ -318,50 +347,82 @@ export class FileReceiver {
   /** Sampled progress. Completion is reported separately and always fires. */
   private readonly report: (d: ActiveDownload) => void;
 
-  constructor(
-    private readonly dc: RTCDataChannel,
-    private readonly onProgress: (d: ActiveDownload) => void,
-  ) {
+  /** The sender said it is closing its tab; nothing will resume. */
+  onBye: (() => void) | null = null;
+
+  constructor(private readonly onProgress: (d: ActiveDownload) => void) {
     this.report = throttle(PROGRESS_INTERVAL_MS, onProgress);
-    this.dc.binaryType = 'arraybuffer';
-    this.dc.addEventListener('message', (ev) => {
-      this.chain = this.chain.then(() => this.handleMessage(ev)).catch(() => undefined);
+  }
+
+  /** Where an interrupted transfer stands, or null when nothing is pending. */
+  get pending(): ActiveDownload | null {
+    return this.current;
+  }
+
+  /** Takes an open channel into use, resuming whatever the last one left. */
+  attach(dc: RTCDataChannel): void {
+    this.dc = dc;
+    dc.binaryType = 'arraybuffer';
+    dc.addEventListener('message', (ev) => {
+      this.chain = this.chain.then(() => this.handleMessage(dc, ev)).catch(() => undefined);
     });
+    // Behind the chain, so every write already under way has landed and
+    // `received` is exact before we say where to continue from.
+    this.chain = this.chain.then(() => {
+      const req = this.current;
+      if (!req || this.dc !== dc) return;
+      req.reqId = uid();
+      req.started = false;
+      this.send({ t: 'req', reqId: req.reqId, fileId: req.fileId, from: req.received });
+    });
+  }
+
+  /** The channel is gone. The request in progress waits for the next one. */
+  detach(): void {
+    this.dc = null;
   }
 
   /** Requests a file and resolves once the last byte has been written. */
   request(fileId: string, sink: ReceiveSink): Promise<void> {
-    const reqId = uid();
+    if (this.current) return Promise.reject(new Error('A transfer is already running.'));
     return new Promise<void>((resolvePromise, rejectPromise) => {
-      this.pendingSinks.set(reqId, { sink, resolve: resolvePromise, reject: rejectPromise });
-      this.dc.send(JSON.stringify({ t: 'req', reqId, fileId } satisfies TransferMessage));
+      const reqId = uid();
+      this.current = {
+        reqId, fileId, sink, name: '', size: 0, received: 0, started: false,
+        resolve: resolvePromise, reject: rejectPromise,
+      };
+      this.send({ t: 'req', reqId, fileId, from: 0 });
     });
   }
 
   cancel(reqId: string): void {
-    if (this.dc.readyState === 'open') {
-      this.dc.send(JSON.stringify({ t: 'cancel', reqId } satisfies TransferMessage));
+    this.send({ t: 'cancel', reqId });
+    const req = this.current;
+    if (req && req.reqId === reqId) {
+      this.current = null;
+      void req.sink.abort('Cancelled.');
+      req.reject(new Error('Cancelled.'));
     }
-    const pending = this.pendingSinks.get(reqId);
-    if (pending) {
-      void pending.sink.abort('Cancelled.');
-      pending.reject(new Error('Cancelled.'));
-      this.pendingSinks.delete(reqId);
-    }
-    if (this.active?.reqId === reqId) this.active = null;
   }
 
-  /** Called when the peer connection drops mid-transfer. */
+  /** Gives up on the transfer in progress for good. */
   failAll(reason: string): void {
-    if (this.active) {
-      void this.active.sink.abort(reason);
-      this.active = null;
-    }
-    for (const [, pending] of this.pendingSinks) pending.reject(new Error(reason));
-    this.pendingSinks.clear();
+    const req = this.current;
+    this.current = null;
+    if (!req) return;
+    void req.sink.abort(reason);
+    req.reject(new Error(reason));
   }
 
-  private async handleMessage(ev: MessageEvent): Promise<void> {
+  private send(msg: TransferMessage): void {
+    if (this.dc?.readyState === 'open') this.dc.send(JSON.stringify(msg));
+  }
+
+  private async handleMessage(dc: RTCDataChannel, ev: MessageEvent): Promise<void> {
+    // Stragglers from a channel we have moved on from are dropped. Their bytes
+    // were never counted, so the resume request asks for them again.
+    if (dc !== this.dc) return;
+
     if (typeof ev.data === 'string') {
       let msg: TransferMessage;
       try {
@@ -369,47 +430,53 @@ export class FileReceiver {
       } catch {
         return;
       }
+      const req = this.current;
+
+      if (msg.t === 'bye') {
+        this.onBye?.();
+        return;
+      }
 
       if (msg.t === 'begin') {
-        const pending = this.pendingSinks.get(msg.reqId);
-        if (!pending) return;
-        this.active = {
-          reqId: msg.reqId, fileId: msg.fileId, name: msg.name,
-          size: msg.size, received: 0, sink: pending.sink,
-        };
-        this.onProgress(this.active);
+        if (!req || req.reqId !== msg.reqId) return;
+        if (msg.from !== req.received) {
+          this.failAll('The sender resumed at the wrong position.');
+          return;
+        }
+        req.started = true;
+        req.name = msg.name;
+        req.size = msg.size;
+        this.onProgress(req);
         return;
       }
 
       if (msg.t === 'end') {
-        const pending = this.pendingSinks.get(msg.reqId);
-        if (!pending || !this.active || this.active.reqId !== msg.reqId) return;
-        await this.active.sink.close();
-        this.onProgress(this.active);
-        this.pendingSinks.delete(msg.reqId);
-        this.active = null;
-        pending.resolve();
+        if (!req || req.reqId !== msg.reqId || !req.started) return;
+        if (req.received !== req.size) {
+          this.failAll(`Received ${req.received} of ${req.size} bytes.`);
+          return;
+        }
+        this.current = null;
+        await req.sink.close();
+        this.onProgress(req);
+        req.resolve();
         return;
       }
 
       if (msg.t === 'deny') {
-        const pending = this.pendingSinks.get(msg.reqId);
-        if (!pending) return;
-        void pending.sink.abort(msg.reason);
-        this.pendingSinks.delete(msg.reqId);
-        if (this.active?.reqId === msg.reqId) this.active = null;
-        pending.reject(new Error(msg.reason));
+        if (!req || req.reqId !== msg.reqId) return;
+        this.failAll(msg.reason);
       }
       return;
     }
 
     // Binary: a chunk of the transfer currently in flight.
-    const active = this.active;
-    if (!active) return;
+    const req = this.current;
+    if (!req || !req.started) return;
     const chunk = ev.data as ArrayBuffer;
-    await active.sink.write(chunk);
-    active.received += chunk.byteLength;
-    this.report(active);
+    await req.sink.write(chunk);
+    req.received += chunk.byteLength;
+    this.report(req);
   }
 }
 

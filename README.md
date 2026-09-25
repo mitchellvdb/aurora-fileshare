@@ -269,6 +269,42 @@ traffic" message rather than a silent hang.
 Note that a TURN relay also means those transfers consume your bandwidth, which
 is exactly what the peer-to-peer design otherwise avoids.
 
+## Surviving dropped connections
+
+A transfer that loses its connection part way continues from the last byte
+that reached the recipient's disk, rather than starting over.
+
+- **The direct link drops** (network change, Wi-Fi blip, NAT rebinding). The
+  recipient's `FileReceiver` keeps the request in progress - its sink stays
+  open, its byte count stays put - and the page builds a new peer connection
+  (asking the sender, sealed, with `{ ctl: 'hello', want: 'connect' }`). On the
+  new channel it asks for the rest: `{ t: 'req', fileId, from }`. Only bytes
+  that reached the sink are counted, so anything still in flight on the old
+  channel is simply asked for again. A connection stuck in `disconnected` for
+  8 s counts as dropped; after 10 minutes without one the page gives up.
+- **Our server drops** (Cloudflare hiccup, restart, deploy). Transfers do not
+  notice: the files never pass through it. Both pages reconnect the socket by
+  themselves; the sender registers the same share again under the same slug
+  (`host` with `slug`), and recipients rejoin (`join` with `again`, which the
+  usage counts ignore). Recipients carry a random `rid`, sent sealed, so the
+  sender recognises them under their new server address - and does not ask
+  again for approval.
+- **The sender closes the tab.** It says `bye` over both the data channel and
+  the sealed signalling, so recipients stop waiting at once.
+
+What does not resume: a reload or closed tab on either side. The sender's tab
+is the only copy of the files, and a download the browser itself has failed
+cannot be continued. Resuming *across* a reload was considered for Chromium
+(File System Access API) and dropped: its writable streams write to a swap
+copy of the whole file on every reopen, which at tens of gigabytes defeats the
+purpose.
+
+`test/resume.test.mjs` cuts the connection at a chosen byte and checks the
+result is byte-identical and that, after the cut, the sender sent exactly the
+missing bytes - for a streamed download, a ZIP cut inside its second file, the
+in-memory mode over plain HTTP, a server killed mid-transfer, and a sender
+closing its tab.
+
 ## Link secrets and end-to-end encryption
 
 Every link ends in 128 random bits after the `#`:
