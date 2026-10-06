@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { build, context } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 
 const watch = process.argv.includes('--watch');
@@ -76,6 +77,26 @@ async function writeManifest(result) {
   return manifest;
 }
 
+/**
+ * When each page last changed, for the sitemap. Taken from git, because the
+ * server has no repository and a file's mtime on the server is just whenever
+ * it was last deployed. A sitemap that claims every page changed today - as it
+ * did when the server used today's date - teaches Google to ignore the field.
+ */
+async function writeLastmod() {
+  const dates = {};
+  for (const name of (await readdir('public')).filter((f) => f.endsWith('.html'))) {
+    let date = '';
+    try {
+      date = execFileSync('git', ['log', '-1', '--format=%cs', '--', `public/${name}`], { encoding: 'utf8' }).trim();
+    } catch { /* not a git checkout */ }
+    // Uncommitted or untracked: it is changing right now.
+    if (!date) date = new Date().toISOString().slice(0, 10);
+    dates[name] = date;
+  }
+  await writeFile('public/build/lastmod.json', JSON.stringify(dates, null, 2));
+}
+
 if (watch) {
   const contexts = await Promise.all([context(pages), context(worker)]);
   await Promise.all(contexts.map((c) => c.watch()));
@@ -85,6 +106,7 @@ if (watch) {
 } else {
   const [result] = await Promise.all([build(pages), build(worker)]);
   const manifest = await writeManifest(result);
+  await writeLastmod();
   console.log('[build] client bundles written');
   for (const [k, v] of Object.entries(manifest)) console.log(`         ${k} -> ${v}`);
 }

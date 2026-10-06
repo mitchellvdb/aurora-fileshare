@@ -165,6 +165,15 @@ function scriptHash(content: string): string {
   return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
 }
 
+/** Last-changed dates per page, written at build time from git. */
+async function pageDates(publicRoot: string): Promise<Record<string, string>> {
+  try {
+    return JSON.parse(await readFile(join(publicRoot, 'build/lastmod.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
 export async function loadDocuments(publicRoot: string): Promise<void> {
   const manifest = await assetManifest(publicRoot);
   const cards = await ogManifest(publicRoot);
@@ -204,7 +213,7 @@ export async function loadDocuments(publicRoot: string): Promise<void> {
     });
   }
 
-  generatedSitemap = publicUrl ? sitemapXml(publicUrl) : '';
+  generatedSitemap = publicUrl ? sitemapXml(publicUrl, await pageDates(publicRoot)) : '';
   generatedRobots = robotsTxt(publicUrl);
 
   console.log(`[aurora-fileshare] documents rendered (${faqEntries.length} FAQ entries)`);

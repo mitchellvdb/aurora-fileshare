@@ -182,5 +182,36 @@ function extractLd(html) {
   }
 }
 
+// --- Icons crawlers ask for by name -------------------------------------------
+// Googlebot-Image and the link-preview bots request /favicon.ico regardless of
+// what the page links; Google shows a site icon in results only when it can get
+// a raster one in a multiple of 48 px.
+{
+  const ico = await fetch(ORIGIN + '/favicon.ico');
+  const buf = Buffer.from(await ico.arrayBuffer());
+  check('favicon.ico is served as an icon', ico.status === 200 && /icon/.test(ico.headers.get('content-type') ?? ''),
+    `${ico.status} ${ico.headers.get('content-type')}`);
+  const sizes = [];
+  for (let i = 0; i < buf.readUInt16LE(4); i++) sizes.push(buf.readUInt8(6 + 16 * i) || 256);
+  check('favicon.ico holds a 48 px image', sizes.includes(48), sizes.join(','));
+  const touch = await fetch(ORIGIN + '/apple-touch-icon.png');
+  check('apple-touch-icon.png is served', touch.status === 200 && touch.headers.get('content-type') === 'image/png');
+  const home = await (await fetch(ORIGIN + '/')).text();
+  check('pages link the raster favicon', home.includes('<link rel="icon" href="/favicon.ico" sizes="48x48">'));
+}
+
+// --- Sitemap dates are real ----------------------------------------------------
+// They come from git at build time. "Today" on every request - what the
+// sitemap used to say - teaches Google to ignore the field.
+{
+  const { readFileSync } = await import('node:fs');
+  const dates = JSON.parse(readFileSync(new URL('../public/build/lastmod.json', import.meta.url), 'utf8'));
+  const xml = await (await fetch(ORIGIN + '/sitemap.xml')).text();
+  const found = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
+  check('every sitemap entry has a date', found.length > 0 && found.length === (xml.match(/<url>/g) ?? []).length,
+    `${found.length} dates`);
+  check('the dates are the build-time ones', found.every((d) => Object.values(dates).includes(d)), found.join(','));
+}
+
 console.log(failures === 0 ? '\nALL SEO TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

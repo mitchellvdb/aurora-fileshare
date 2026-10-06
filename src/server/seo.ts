@@ -203,12 +203,17 @@ export function appJsonLd(publicUrl: string): string {
   });
 }
 
-export function sitemapXml(publicUrl: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const urls = INDEXABLE.map((page) => {
+/**
+ * `lastmod` is when each page file last changed, keyed by file name (see
+ * writeLastmod in scripts/build-client.mjs). A page without a date simply has
+ * no <lastmod>: no date is better than a wrong one.
+ */
+export function sitemapXml(publicUrl: string, lastmod: Record<string, string> = {}): string {
+  const urls = Object.entries(PAGES).filter(([, page]) => !page.noindex).map(([file, page]) => {
     const loc = new URL(page.path, publicUrl).toString();
     const priority = page.path === '/' ? '1.0' : '0.8';
-    return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n`
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(lastmod[file] ?? '') ? `    <lastmod>${lastmod[file]}</lastmod>\n` : '';
+    return `  <url>\n    <loc>${loc}</loc>\n${date}`
       + `    <changefreq>monthly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
   }).join('\n');
 
