@@ -1,0 +1,33 @@
+/* Announced-maintenance bar, see maint.js. Same amber as the AuroraHosting storefront. */
+#maint-bar {
+  position: relative;
+  z-index: 5;
+  background: linear-gradient(180deg, rgba(240, 180, 92, 0.22), rgba(240, 180, 92, 0.14));
+  border-bottom: 1px solid rgba(240, 180, 92, 0.28);
+  font-family: Archivo, system-ui, sans-serif;
+}
+#maint-bar .maint-in {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 11px clamp(16px, 5vw, 48px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+#maint-bar .maint-tag {
+  flex: none;
+  align-self: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f0b45c;
+  border: 1px solid rgba(240, 180, 92, 0.45);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+#maint-bar p { margin: 0; flex: 1 1 320px; color: #c3ced5; }
+@media (max-width: 560px) { #maint-bar .maint-in { font-size: 13.5px; } }

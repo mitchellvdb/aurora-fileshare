@@ -73,6 +73,22 @@ async function writeManifest(result) {
     manifest['styles.css'] = `/build/${name}`;
   }
 
+  // Plain scripts that sit outside the bundle (a temporary maintenance notice,
+  // say) are hashed the same way, so the "everything is content-hashed" rule
+  // holds for them too. Each is optional: no file, no entry.
+  for (const plain of ['maint.js']) {
+    let source;
+    try { source = await readFile(`public/${plain}`); } catch { continue; }
+    if (dev) {
+      manifest[plain] = `/${plain}`;
+      continue;
+    }
+    const hash = createHash('sha256').update(source).digest('hex').slice(0, 8);
+    const name = plain.replace(/\.js$/, `.${hash}.js`);
+    await writeFile(`public/build/${name}`, source);
+    manifest[plain] = `/build/${name}`;
+  }
+
   await writeFile('public/build/manifest.json', JSON.stringify(manifest, null, 2));
   return manifest;
 }
