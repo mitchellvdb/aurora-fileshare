@@ -6,6 +6,8 @@
 <title>Aurora FileShare — peer-to-peer file transfers</title>
 <meta name="description" content="Send files straight from your browser to theirs. Nothing is uploaded to a server.">
 <meta name="color-scheme" content="dark">
+<link rel="preload" href="/fonts/instrument-sans.2ee17598.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/bricolage-grotesque.a97804dc.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="/build/maint.js" defer></script>
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -14,173 +16,277 @@
 </head>
 <body>
 <div class="page">
-<div class="aurora" aria-hidden="true"></div>
-<div class="aurora-fade" aria-hidden="true"></div>
+<!--background-->
+<div class="wrap">
 
 <header class="hdr">
-  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
-  <div class="right">
-    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+  <a class="brand" href="/"><img src="/icon.svg" alt="" width="34" height="34">Aurora FileShare</a>
+  <nav class="hdr-nav">
+    <a class="pill-link" href="/faq">How it works &amp; FAQ</a>
     <span id="donate-slot" hidden></span>
-  </div>
+  </nav>
 </header>
 
 <main>
-  <p class="kicker">Peer to peer &middot; no upload</p>
-  <h1>Files go straight from your browser to theirs.</h1>
-  <p class="lede">
-    Encrypted, peer to peer. Nothing is stored on our servers, and there is no size limit.
-  </p>
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="badge rise d1"><span class="pill-dot"></span>Peer to peer &middot; no upload</p>
+      <h1 class="h-hero rise d2">Files go <span class="under">straight</span> from your browser to theirs.</h1>
+      <p class="lede rise d3">Encrypted, peer to peer. Nothing is stored on our servers, and there is no size limit.</p>
+      <div class="hero-cta rise d4">
+        <a class="btn btn-secondary" href="#how">See how it works <span aria-hidden="true">&darr;</span></a>
+        <span class="tech">WebRTC &middot; DTLS</span>
+      </div>
+    </div>
 
-  <p class="error" id="error" hidden></p>
+    <div class="card tool rise d3">
+      <p class="error" id="error" hidden></p>
 
-  <section id="picker">
-    <div class="card">
-
-      <!-- Idle: a label wrapping the input, so click and keyboard both work
-           without script. -->
-      <label class="drop" id="drop-zone">
-        <input type="file" id="file-input" class="hidden-input" multiple>
-        <span class="drop-icon" aria-hidden="true">&uarr;</span>
-        <span class="drop-title">Drop files here</span>
-        <span class="drop-hint">or click to choose &mdash; they never leave your device until someone downloads them</span>
-      </label>
-
-      <!-- Files chosen: replaces the drop zone. -->
-      <div class="files" id="files-panel" hidden>
-        <div class="files-head">
-          <span class="label" id="file-count">0 files</span>
-          <span class="files-total" id="file-total">0 B</span>
-        </div>
-        <ul id="file-list"></ul>
-        <label class="add-more">
-          + Add more files
-          <input type="file" id="file-input-more" class="hidden-input" multiple>
+      <section id="picker" class="tool">
+        <!-- Idle: a label wrapping the input, so click and keyboard both work
+             without script. -->
+        <label class="drop" id="drop-zone">
+          <input type="file" id="file-input" class="hidden-input" multiple>
+          <svg class="drop-icon" width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#4de8b0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 30V8"/><path d="M13 16l9-9 9 9"/><path d="M7 30v4a3 3 0 003 3h24a3 3 0 003-3v-4"/></svg>
+          <span class="drop-title">Drop files here or click to choose</span>
+          <span class="drop-hint">They never leave your device until someone downloads them.</span>
         </label>
-      </div>
 
-      <div id="compose">
-        <div class="field">
-          <label class="label" for="password">Password (optional)</label>
-          <input class="input" type="password" id="password" autocomplete="new-password"
-                 placeholder="Leave blank for no password">
+        <!-- Files chosen: replaces the drop zone. -->
+        <div class="files" id="files-panel" hidden>
+          <div class="files-head">
+            <span id="file-count">0 files</span>
+            <span id="file-total">0 B</span>
+          </div>
+          <ul id="file-list"></ul>
+          <label class="add-more">
+            + Add more files
+            <input type="file" id="file-input-more" class="hidden-input" multiple>
+          </label>
         </div>
-        <label class="check">
-          <input type="checkbox" id="approve">
-          <span>Ask me before each person connects
-            <span class="note">Nobody gets the files until you allow them, even if the link leaks.</span>
-          </span>
-        </label>
-        <div class="actions">
-          <button class="btn" id="start-share" type="button" disabled>Choose files first</button>
-          <span class="note">Your browser stays open until the transfer finishes.</span>
-        </div>
-      </div>
 
+        <div id="compose" class="tool">
+          <div class="field">
+            <label class="label" for="password">Password (optional)</label>
+            <input class="input" type="password" id="password" autocomplete="new-password"
+                   placeholder="Leave blank for no password">
+          </div>
+          <label class="check">
+            <input type="checkbox" id="approve">
+            <span class="check-text">Ask me before each person connects
+              <span class="note">Nobody gets the files until you allow them, even if the link leaks.</span>
+            </span>
+          </label>
+          <button class="btn btn-wide" id="start-share" type="button" disabled>Choose files first</button>
+          <p class="live-note"><span class="pill-dot"></span>Your browser stays open until the transfer finishes.</p>
+        </div>
+      </section>
+
+      <section id="share" class="tool" hidden>
+        <div class="share-head">
+          <span class="eyebrow">Share this link</span>
+          <span class="tech">end-to-end encrypted</span>
+        </div>
+        <div class="link-row">
+          <input class="link-box" type="text" id="share-url" readonly aria-label="Share link">
+          <button class="btn-copy" id="copy-link" type="button">Copy</button>
+        </div>
+
+        <div class="qr-row">
+          <div class="qr" id="qr"></div>
+          <div class="qr-note">
+            <p class="muted" id="share-summary"></p>
+            <p class="note" id="password-note" hidden>
+              This share is password protected — send the password separately from the link.
+            </p>
+            <p class="note" id="server-note" hidden></p>
+            <p class="note" id="approve-note" hidden>
+              You will be asked before anyone connects.
+            </p>
+          </div>
+        </div>
+
+        <div class="waiting" id="waiting">
+          <span class="pip" aria-hidden="true"></span>
+          <span id="recipient-count">Waiting for the other side to open the link</span>
+        </div>
+
+        <p class="note" id="keep-open">
+          Keep this tab open. The transfer runs between the two browsers, so closing it
+          cancels the share.
+        </p>
+
+        <div id="recipients-card" hidden>
+          <h2 class="xfer-title">Transfers</h2>
+          <ul class="recipients" id="recipients"></ul>
+          <p class="note">Encrypted end to end by DTLS. Nothing passes through our servers.</p>
+        </div>
+      </section>
     </div>
   </section>
 
-  <section id="share" hidden>
-    <div class="card">
-      <p class="label">Share this link</p>
-      <div class="link-row">
-        <input class="link-box" type="text" id="share-url" readonly aria-label="Share link">
-        <button class="btn-copy" id="copy-link" type="button">Copy</button>
-      </div>
-
-      <div class="qr-row">
-        <div class="qr" id="qr"></div>
-        <div class="qr-note">
-          <p class="muted" id="share-summary"></p>
-          <p class="note" id="password-note" hidden>
-            This share is password protected — send the password separately from the link.
-          </p>
-          <p class="note" id="server-note" hidden></p>
-          <p class="note" id="approve-note" hidden>
-            You will be asked before anyone connects.
-          </p>
-        </div>
-      </div>
-
-      <div class="waiting" id="waiting">
-        <span class="pip" aria-hidden="true"></span>
-        <span id="recipient-count">Waiting for the other side to open the link</span>
-      </div>
-
-      <p class="note" id="keep-open">
-        Keep this tab open. The transfer runs between the two browsers, so closing it
-        cancels the share.
-      </p>
+  <section class="section stack" id="how">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2 class="h-sec">The server makes the introduction. Your browsers do the rest.</h2>
     </div>
 
-    <div class="card" id="recipients-card" hidden>
-      <h2>Transfers</h2>
-      <ul class="recipients" id="recipients"></ul>
-      <p class="note">Encrypted end to end by DTLS. Nothing passes through our servers.</p>
+    <div class="stage glass loop3">
+      <svg viewBox="0 0 960 380" role="img" aria-label="Animation: you choose files, the server hands out a link and introduces the two browsers, then the files travel directly between the browsers, encrypted.">
+            <!-- signalling lines -->
+            <g class="lp sig">
+              <path class="sigdash" d="M280 160 L430 70" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+              <path class="sigdash" d="M530 70 L680 160" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+            </g>
+
+            <!-- server -->
+            <g class="lp server">
+              <rect class="lp srvglow" x="379" y="14" width="202" height="102" rx="16" fill="none" stroke="#9a86ff" stroke-width="3"></rect>
+              <rect x="385" y="20" width="190" height="90" rx="12" fill="#0e1328" stroke="#9a86ff" stroke-opacity=".7" stroke-width="1.5"></rect>
+              <rect x="405" y="40" width="150" height="12" rx="6" fill="#9a86ff" fill-opacity=".35"></rect>
+              <rect x="405" y="60" width="150" height="12" rx="6" fill="#9a86ff" fill-opacity=".2"></rect>
+              <circle cx="414" cy="46" r="3" fill="#c9bfff"></circle>
+              <circle cx="414" cy="66" r="3" fill="#c9bfff"></circle>
+              <text x="480" y="96" text-anchor="middle" font-size="13" fill="#d6ceff">Aurora server</text>
+              <text x="480" y="2" text-anchor="middle" font-size="12" fill="#a3b0cf"></text>
+            </g>
+            <text x="480" y="140" text-anchor="middle" font-size="12" fill="#a3b0cf">only introduces the two browsers</text>
+
+            <!-- sender -->
+            <rect class="lp swin" x="30" y="130" width="250" height="190" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="30" y="130" width="250" height="28" rx="14" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="48" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="62" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="76" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <g class="lp chip c1"><rect x="50" y="176" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="196" font-size="13" fill="#e8eefc">backup.tar</text></g>
+            <g class="lp chip c2"><rect x="50" y="214" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="234" font-size="13" fill="#e8eefc">render.mp4</text></g>
+            <g class="lp chip c3"><rect x="50" y="252" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="272" font-size="13" fill="#e8eefc">notes.pdf</text></g>
+            <text x="155" y="352" text-anchor="middle" font-size="15" fill="#e8eefc">Your browser</text>
+
+            <!-- receiver -->
+            <rect x="680" y="130" width="250" height="190" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="680" y="130" width="250" height="28" rx="14" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="698" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="712" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="726" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <g class="lp rchip"><rect x="700" y="176" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf1" x="700" y="176" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="196" font-size="13" fill="#e8eefc">backup.tar</text></g>
+            <g class="lp rchip"><rect x="700" y="214" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf2" x="700" y="214" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="234" font-size="13" fill="#e8eefc">render.mp4</text></g>
+            <g class="lp rchip"><rect x="700" y="252" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf3" x="700" y="252" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="272" font-size="13" fill="#e8eefc">notes.pdf</text></g>
+            <text x="805" y="352" text-anchor="middle" font-size="15" fill="#e8eefc">Their browser</text>
+
+            <!-- direct connection -->
+            <g class="lp direct">
+              <path d="M280 235 L680 235" fill="none" stroke="#4de8b0" stroke-opacity=".5" stroke-width="2"></path>
+              <circle class="pkt" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p2" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p3" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p4" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+            </g>
+            <g class="lp lock">
+              <rect x="447" y="206" width="66" height="26" rx="13" fill="#04120d" stroke="#4de8b0" stroke-width="1.5"></rect>
+              <path d="M462 217 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#4de8b0" stroke-width="1.6"></path>
+              <rect x="459" y="217" width="14" height="9" rx="2" fill="#4de8b0"></rect>
+              <text x="494" y="224" text-anchor="middle" font-size="11" fill="#4de8b0">DTLS</text>
+            </g>
+
+            <!-- link token -->
+            <g transform="translate(280 160)">
+              <g class="lp token">
+                <rect x="-46" y="-13" width="92" height="26" rx="13" fill="#9a86ff"></rect>
+                <text x="0" y="4" text-anchor="middle" font-size="12" fill="#0a0716">link /#k3x9</text>
+              </g>
+            </g>
+          </svg>
+    </div>
+
+    <div class="steps-grid loop3-steps">
+      <div class="step s1">
+        <span class="num">01</span>
+        <h3>You choose files</h3>
+        <p>They stay on your device &mdash; nothing is uploaded.</p>
+        <span class="bar-line"></span>
+      </div>
+      <div class="step s2">
+        <span class="num">02</span>
+        <h3>You get a link</h3>
+        <p>Our server only introduces the two browsers to each other.</p>
+        <span class="bar-line"></span>
+      </div>
+      <div class="step s3">
+        <span class="num">03</span>
+        <h3>They connect directly</h3>
+        <p>The transfer runs between the two browsers over WebRTC, encrypted end to end by DTLS.</p>
+        <span class="bar-line"></span>
+      </div>
     </div>
   </section>
 
-  <section class="steps">
-    <h2>How this works</h2>
-    <div class="steps-grid">
-      <div class="step">
-        <p class="step-n">01</p>
-        <p>You pick files. They stay on your device &mdash; nothing is uploaded.</p>
-      </div>
-      <div class="step">
-        <p class="step-n">02</p>
-        <p>We hand you a link. Our server only introduces the two browsers to each other.</p>
-      </div>
-      <div class="step">
-        <p class="step-n">03</p>
-        <p>The transfer runs directly between the two browsers over WebRTC, encrypted end to end by DTLS.</p>
-      </div>
-    </div>
-  </section>
-  <section class="steps">
-    <h2>Why there is no size limit</h2>
-    <div class="section-copy">
-      <p>
+  <section class="section split">
+    <div class="sec-head">
+      <span class="eyebrow">No size limit</span>
+      <h2 class="h-sec">Why there is no size limit</h2>
+      <p class="body-copy">
         Most transfer services cap what you can send because every file you
         upload occupies a disk they pay for, for as long as it sits there. The
         ceiling on a free tier is where that cost stops being worth absorbing.
       </p>
-      <p>
+      <p class="body-copy">
         Nothing is uploaded here, so that cost never arises. Your browser and
         the recipient's connect directly and the bytes cross the network once,
         from your machine to theirs. Our server only passes along the details
         the two browsers need in order to find each other — a few kilobytes of
-        connection data — and then has no further part in it. There is no
-        storage quota to hit because there is no storage, and no account to
-        create because there is nothing to attach one to.
+        connection data — and then has no further part in it.
       </p>
-      <p>
+      <p class="body-copy">
         The trade-off is real and worth knowing before you start: both people
         have to be online at the same time, and the sending tab has to stay
         open, because your device is the source. If you need a file to sit and
         wait for someone, a service that stores it is the better tool.
       </p>
-      <p class="section-links">
-        <a href="/send-large-files">Sending large files without an account</a>
-        <a href="/send-50gb-file">How to send a 50&nbsp;GB file for free</a>
-        <a href="/what-free-means">What "free" actually means</a>
-        <a href="/faq">Full documentation &amp; FAQ</a>
-      </p>
+    </div>
+
+    <div class="glass lanes" aria-hidden="true">
+      <div class="lane-block">
+        <span class="lane-label">Typical upload service</span>
+        <div class="lane">
+          <span class="node">Sender</span>
+          <span class="track"><i class="bit v"></i><i class="bit v b3"></i></span>
+          <span class="node stored">Stored on server</span>
+          <span class="track dashed"></span>
+          <span class="node">Recipient</span>
+        </div>
+      </div>
+      <div class="lane-block">
+        <span class="lane-label live">Aurora FileShare</span>
+        <div class="lane">
+          <span class="node">Sender</span>
+          <span class="track live"><i class="bit"></i><i class="bit b2"></i><i class="bit b3"></i><i class="bit b4"></i></span>
+          <span class="node">Recipient</span>
+        </div>
+      </div>
     </div>
   </section>
+
+  <nav class="links" aria-label="Guides">
+    <a class="link-card" href="/send-large-files"><span>Sending large files without an account</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+    <a class="link-card" href="/send-50gb-file"><span>How to send a 50&nbsp;GB file for free</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+    <a class="link-card" href="/what-free-means"><span>What &ldquo;free&rdquo; actually means</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+    <a class="link-card" href="/faq"><span>Full documentation &amp; FAQ</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+  </nav>
 </main>
 
-<footer>
-  <div class="ftr-row">
+<footer class="ftr">
+  <nav>
     <a href="/faq">Documentation &amp; FAQ</a>
     <a href="https://aurorahosting.nl">Aurora Hosting</a>
     <a href="/terms">Terms</a>
     <!--contact-link-->
     <!--source-link-->
-    <span class="copyright">&copy; 2026 Aurora Hosting</span>
-  </div>
+  </nav>
+  <span>&copy; 2026 Aurora Hosting</span>
 </footer>
 
+</div>
 </div>
 <script type="module" src="/build/upload.js"></script>
 </body>

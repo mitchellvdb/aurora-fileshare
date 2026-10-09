@@ -151,12 +151,27 @@ export interface FaqEntry {
  * structured data cannot drift away from what the page actually says.
  */
 export function extractFaq(html: string): FaqEntry[] {
-  const section = /<article[^>]*id="faq"[^>]*>([\s\S]*?)<\/article>/.exec(html);
+  const section = /<(article|section)[^>]*id="faq"[^>]*>([\s\S]*?)<\/\1>/.exec(html);
   if (!section) return [];
-
+  const body = section[2]!;
   const entries: FaqEntry[] = [];
-  const blocks = section[1]!.split(/<h3[^>]*>/).slice(1);
 
+  // The current page: one <details> per question, the question in <summary>.
+  if (body.includes('<details')) {
+    for (const m of body.matchAll(/<details[^>]*>([\s\S]*?)<\/details>/g)) {
+      const inner = m[1]!;
+      const question = textOf(/<summary[^>]*>([\s\S]*?)<\/summary>/.exec(inner)?.[1] ?? '');
+      const answer = [...inner.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)]
+        .map((p) => textOf(p[1]!))
+        .filter(Boolean)
+        .join(' ');
+      if (question && answer) entries.push({ question, answer });
+    }
+    return entries;
+  }
+
+  // The older layout: an <h3> per question followed by its paragraphs.
+  const blocks = body.split(/<h3[^>]*>/).slice(1);
   for (const block of blocks) {
     const end = block.indexOf('</h3>');
     if (end === -1) continue;

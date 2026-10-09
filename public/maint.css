@@ -4,7 +4,7 @@
   z-index: 5;
   background: linear-gradient(180deg, rgba(240, 180, 92, 0.22), rgba(240, 180, 92, 0.14));
   border-bottom: 1px solid rgba(240, 180, 92, 0.28);
-  font-family: Archivo, system-ui, sans-serif;
+  font-family: 'Instrument Sans', system-ui, sans-serif;
 }
 #maint-bar .maint-in {
   max-width: 1180px;

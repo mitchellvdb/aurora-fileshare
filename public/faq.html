@@ -6,6 +6,8 @@
 <title>How it works &amp; FAQ — Aurora FileShare</title>
 <meta name="description" content="How Aurora FileShare sends files peer to peer without uploading them: size limits, privacy, passwords, expiry, browser support and troubleshooting.">
 <meta name="color-scheme" content="dark">
+<link rel="preload" href="/fonts/instrument-sans.2ee17598.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/bricolage-grotesque.a97804dc.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="/build/maint.js" defer></script>
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -14,70 +16,290 @@
 </head>
 <body>
 <div class="page">
-<div class="aurora" aria-hidden="true"></div>
-<div class="aurora-fade" aria-hidden="true"></div>
+<!--background-->
+<div class="wrap">
 
 <header class="hdr">
-  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
-  <div class="right">
-    <a class="lnk-quiet" href="/">Send a file</a>
+  <a class="brand" href="/"><img src="/icon.svg" alt="" width="34" height="34">Aurora FileShare</a>
+  <nav class="hdr-nav">
+    <span class="hdr-label">Documentation</span>
     <span id="donate-slot" hidden></span>
-  </div>
+    <a class="btn btn-small" href="/">Send a file</a>
+  </nav>
 </header>
 
 <main>
-  <p class="kicker">Documentation</p>
-  <h1>How it works, and the usual questions.</h1>
-  <p class="lede">
-    Everything below follows from one design choice: the files never reach a server.
-  </p>
+  <section class="page-head">
+    <p class="badge rise d1"><span class="pill-dot"></span>Documentation &amp; FAQ</p>
+    <h1 class="h-hero h-page rise d2">How it works, and the <span class="under">usual</span> questions.</h1>
+    <p class="lede rise d3">Everything below follows from one design choice: the files never reach a server.</p>
+  </section>
 
-  <article class="card prose">
-    <h2>What it is</h2>
-    <p>
-      Aurora FileShare sends files straight from one browser to another. There is
-      no upload step and no copy sitting on a server afterwards — the two browsers
-      form a direct, encrypted connection and the bytes flow across it.
-    </p>
-    <p>
-      That single design choice is where most of the behaviour below comes from:
-      there is no size limit because there is nothing to store, and the sender has
-      to keep their tab open because their device <em>is</em> the source.
-    </p>
+  <section class="section split">
+    <div class="sec-head">
+      <span class="eyebrow">What it is</span>
+      <h2 class="h-sec">Two browsers, one direct line.</h2>
+      <p class="body-copy">
+        Aurora FileShare sends files straight from one browser to another. There is
+        no upload step and no copy sitting on a server afterwards — the two browsers
+        form a direct, encrypted connection and the bytes flow across it.
+      </p>
+      <p class="body-copy">
+        That single design choice is where most of the behaviour below comes from:
+        there is no size limit because there is nothing to store, and the sender has
+        to keep their tab open because their device <em>is</em> the source.
+      </p>
+    </div>
+    <div class="glass oneline" aria-hidden="true">
+      <div class="ghost-row"><span class="node ghost">Server copy</span></div>
+      <div class="lane">
+        <span class="node">Your browser</span>
+        <span class="track live"><i class="bit"></i><i class="bit b2"></i><i class="bit b3"></i><i class="bit b4"></i></span>
+        <span class="node">Their browser</span>
+      </div>
+    </div>
+  </section>
 
-    <h2>How a transfer works</h2>
-    <ol>
-      <li><strong>You pick files.</strong> They stay on your device. Nothing is read or copied yet.</li>
-      <li><strong>You get a link.</strong> It ends in a random secret, the part after the <code>#</code>, which your browser never sends to us. Our server records that the share exists and how many files it has of what size; the file names are encrypted with that secret, so only someone holding the link can read them.</li>
-      <li><strong>They open the link.</strong> The server introduces the two browsers to each other — this is called signalling — and then steps out of the way.</li>
-      <li><strong>The browsers connect directly</strong> over WebRTC and the file streams across, encrypted end to end by DTLS.</li>
-    </ol>
-    <p class="muted">
-      The server never receives, stores, or relays file contents. It cannot: the
-      bytes travel on a connection it is not part of.
-    </p>
-  </article>
+  <section class="section stack" id="transfer">
+    <div class="sec-head">
+      <span class="eyebrow">How a transfer works</span>
+      <h2 class="h-sec">Four steps, and the server is only in the middle two.</h2>
+    </div>
 
-  <article class="card prose" id="faq">
-    <h2>Frequently asked questions</h2>
+    <div class="stage glass loop4">
+      <svg viewBox="0 0 960 380" role="img" aria-label="Animation of a transfer: files are chosen, the server creates a share link, passes the connection details between the two browsers, and the files then flow directly between them, encrypted.">
+            <g class="lp sigA">
+              <path class="sigdash" d="M280 160 L430 70" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+            </g>
+            <g class="lp sigB">
+              <path class="sigdash" d="M530 70 L680 160" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+            </g>
 
-    <h3>Is there a file size limit?</h3>
-    <p>
+            <g class="lp server">
+              <rect class="lp srvglow" x="379" y="14" width="202" height="102" rx="16" fill="none" stroke="#9a86ff" stroke-width="3"></rect>
+              <rect x="385" y="20" width="190" height="90" rx="12" fill="#0e1328" stroke="#9a86ff" stroke-opacity=".7" stroke-width="1.5"></rect>
+              <rect x="405" y="40" width="150" height="12" rx="6" fill="#9a86ff" fill-opacity=".35"></rect>
+              <rect x="405" y="60" width="150" height="12" rx="6" fill="#9a86ff" fill-opacity=".2"></rect>
+              <circle cx="414" cy="46" r="3" fill="#c9bfff"></circle>
+              <circle cx="414" cy="66" r="3" fill="#c9bfff"></circle>
+              <text x="480" y="96" text-anchor="middle" font-size="13" fill="#d6ceff">Aurora server</text>
+            </g>
+            <text x="480" y="140" text-anchor="middle" font-size="12" fill="#a3b0cf">only introduces the two browsers</text>
+
+            <rect class="lp swin" x="30" y="130" width="250" height="190" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="30" y="130" width="250" height="28" rx="14" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="48" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="62" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="76" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <g class="lp chip c1"><rect x="50" y="176" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="196" font-size="13" fill="#e8eefc">backup.tar</text></g>
+            <g class="lp chip c2"><rect x="50" y="214" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="234" font-size="13" fill="#e8eefc">render.mp4</text></g>
+            <g class="lp chip c3"><rect x="50" y="252" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect><text x="64" y="272" font-size="13" fill="#e8eefc">notes.pdf</text></g>
+            <text x="155" y="352" text-anchor="middle" font-size="15" fill="#e8eefc">Your browser</text>
+
+            <rect x="680" y="130" width="250" height="190" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="680" y="130" width="250" height="28" rx="14" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="698" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="712" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="726" cy="144" r="4" fill="#fff" fill-opacity=".3"></circle>
+            <g class="lp rchip"><rect x="700" y="176" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf1" x="700" y="176" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="196" font-size="13" fill="#e8eefc">backup.tar</text></g>
+            <g class="lp rchip"><rect x="700" y="214" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf2" x="700" y="214" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="234" font-size="13" fill="#e8eefc">render.mp4</text></g>
+            <g class="lp rchip"><rect x="700" y="252" width="210" height="30" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect><rect class="lp rfill rf3" x="700" y="252" width="210" height="30" rx="8" fill="#4de8b0" fill-opacity=".4"></rect><text x="714" y="272" font-size="13" fill="#e8eefc">notes.pdf</text></g>
+            <text x="805" y="352" text-anchor="middle" font-size="15" fill="#e8eefc">Their browser</text>
+
+            <g class="lp direct">
+              <path d="M280 235 L680 235" fill="none" stroke="#4de8b0" stroke-opacity=".5" stroke-width="2"></path>
+              <circle class="pkt" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p2" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p3" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+              <circle class="pkt p4" cx="280" cy="235" r="5" fill="#4de8b0"></circle>
+            </g>
+            <g class="lp lock">
+              <rect x="447" y="206" width="66" height="26" rx="13" fill="#04120d" stroke="#4de8b0" stroke-width="1.5"></rect>
+              <path d="M462 217 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#4de8b0" stroke-width="1.6"></path>
+              <rect x="459" y="217" width="14" height="9" rx="2" fill="#4de8b0"></rect>
+              <text x="494" y="224" text-anchor="middle" font-size="11" fill="#4de8b0">DTLS</text>
+            </g>
+
+            <g transform="translate(280 160)">
+              <g class="lp token">
+                <rect x="-46" y="-13" width="92" height="26" rx="13" fill="#9a86ff"></rect>
+                <text x="0" y="4" text-anchor="middle" font-size="12" fill="#0a0716">link /#k3x9</text>
+              </g>
+            </g>
+          </svg>
+    </div>
+
+    <div class="steps-grid four loop4-steps">
+      <div class="step s1">
+        <span class="num">01</span>
+        <h3>You pick files</h3>
+        <p>They stay on your device. Nothing is read or copied yet.</p>
+        <span class="bar-line"></span>
+      </div>
+      <div class="step s2">
+        <span class="num">02</span>
+        <h3>You get a link</h3>
+        <p>It ends in a random secret after the <code>#</code>, which your browser never sends to us. The file names are encrypted with it.</p>
+        <span class="bar-line"></span>
+      </div>
+      <div class="step s3">
+        <span class="num">03</span>
+        <h3>They open the link</h3>
+        <p>The server introduces the two browsers to each other &mdash; this is called signalling &mdash; and then steps out of the way.</p>
+        <span class="bar-line"></span>
+      </div>
+      <div class="step s4">
+        <span class="num">04</span>
+        <h3>Direct and encrypted</h3>
+        <p>The browsers connect over WebRTC and the file streams across, encrypted end to end by DTLS.</p>
+        <span class="bar-line"></span>
+      </div>
+    </div>
+    <p class="note">The server never receives, stores, or relays file contents. It cannot: the bytes travel on a connection it is not part of.</p>
+  </section>
+
+  <section class="section split">
+    <div class="sec-head">
+      <span class="eyebrow">What the server sees</span>
+      <h2 class="h-sec">Enough to make the introduction. Not enough to read anything.</h2>
+      <p class="body-copy">
+        The server knows that a share exists, how many files it has and how large
+        they are, and which addresses connect to it. The file list is encrypted with
+        a secret it never receives, and the contents never pass through it at all.
+      </p>
+    </div>
+    <div class="glass seesbox">
+      <div class="scan" aria-hidden="true"></div>
+      <div class="seerow"><span>File count and sizes</span><span class="tag see">Visible</span></div>
+      <div class="seerow"><span>IP addresses</span><span class="tag see">Visible</span></div>
+      <div class="seerow"><span>File names</span><span class="right"><span class="scr" aria-hidden="true"></span><span class="tag enc">Encrypted</span></span></div>
+      <div class="seerow"><span>File contents</span><span class="tag never">Never</span></div>
+    </div>
+  </section>
+
+  <section class="section stack">
+    <div class="sec-head">
+      <span class="eyebrow">At a glance</span>
+      <h2 class="h-sec">The questions that are easier to watch than to read.</h2>
+    </div>
+    <div class="minis">
+      <div class="mini glass">
+        <svg viewBox="0 0 260 170" role="img" aria-label="A connection drops, the browsers retry, and the transfer resumes.">
+            <rect width="260" height="170" rx="14" fill="#0b1020"></rect>
+            <circle cx="40" cy="70" r="16" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <circle cx="220" cy="70" r="16" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <g class="mp v1ok">
+              <path d="M58 70 H202" fill="none" stroke="#4de8b0" stroke-width="2.5"></path>
+              <circle class="pk1" cx="58" cy="70" r="4" fill="#4de8b0"></circle>
+            </g>
+            <g class="mp v1bad">
+              <path d="M58 70 H114 M146 70 H202" fill="none" stroke="#ffb86b" stroke-width="2.5" stroke-dasharray="4 6"></path>
+              <path d="M122 62 l16 16 M138 62 l-16 16" fill="none" stroke="#ffb86b" stroke-width="2.5" stroke-linecap="round"></path>
+            </g>
+            <g class="mp v1ring">
+              <circle class="pulse" cx="40" cy="70" r="20" fill="none" stroke="#ffb86b" stroke-width="2"></circle>
+              <circle class="pulse" cx="220" cy="70" r="20" fill="none" stroke="#ffb86b" stroke-width="2"></circle>
+            </g>
+            <text x="130" y="132" text-anchor="middle" font-size="12" fill="#a3b0cf">retries for up to 10 min</text>
+          </svg>
+        <h3>Dropped connection</h3>
+        <p>The browsers keep retrying for up to ten minutes, and the download resumes where it stopped.</p>
+      </div>
+      <div class="mini glass">
+        <svg viewBox="0 0 260 170" role="img" aria-label="One sender uploading separately to three recipients.">
+            <rect width="260" height="170" rx="14" fill="#0b1020"></rect>
+            <path d="M52 80 L208 32 M52 80 H208 M52 80 L208 128" fill="none" stroke="#4de8b0" stroke-opacity=".45" stroke-width="2"></path>
+            <circle cx="36" cy="80" r="16" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <circle cx="224" cy="32" r="14" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <circle cx="224" cy="80" r="14" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <circle cx="224" cy="128" r="14" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"></circle>
+            <circle class="fa" cx="52" cy="80" r="4" fill="#4de8b0"></circle>
+            <circle class="fb" cx="52" cy="80" r="4" fill="#4de8b0"></circle>
+            <circle class="fc" cx="52" cy="80" r="4" fill="#4de8b0"></circle>
+            <text x="130" y="160" text-anchor="middle" font-size="12" fill="#a3b0cf">3 people = 3× upload</text>
+          </svg>
+        <h3>Several recipients</h3>
+        <p>Each person gets their own direct connection, so ten recipients means ten times the upload.</p>
+      </div>
+      <div class="mini glass">
+        <svg viewBox="0 0 260 170" role="img" aria-label="A countdown ring for the four-hour link lifetime.">
+            <rect width="260" height="170" rx="14" fill="#0b1020"></rect>
+            <circle cx="130" cy="72" r="44" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="8"></circle>
+            <circle class="ringp" cx="130" cy="72" r="44" fill="none" stroke="#4de8b0" stroke-width="8" stroke-linecap="round" transform="rotate(-90 130 72)"></circle>
+            <text x="130" y="80" text-anchor="middle" font-size="22" fill="#e8eefc">4 h</text>
+            <text x="130" y="150" text-anchor="middle" font-size="12" fill="#a3b0cf">idle, or until the tab closes</text>
+          </svg>
+        <h3>Link lifetime</h3>
+        <p>Open until the sender's tab closes, or after four hours of inactivity.</p>
+      </div>
+      <div class="mini glass">
+        <svg viewBox="0 0 260 170" role="img" aria-label="Ten wrong password attempts fill up, then the share closes.">
+            <rect width="260" height="170" rx="14" fill="#0b1020"></rect>
+            <rect class="attbar" x="22" y="56" width="216" height="24" fill="#ffb86b"></rect>
+            <path fill="#0b1020" fill-rule="evenodd" d="M14 48 H246 V88 H14 Z M22 56 h18 v24 h-18 z M44 56 h18 v24 h-18 z M66 56 h18 v24 h-18 z M88 56 h18 v24 h-18 z M110 56 h18 v24 h-18 z M132 56 h18 v24 h-18 z M154 56 h18 v24 h-18 z M176 56 h18 v24 h-18 z M198 56 h18 v24 h-18 z M220 56 h18 v24 h-18 z"></path>
+            <path fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="1.5" d="M22 56 h18 v24 h-18 z M44 56 h18 v24 h-18 z M66 56 h18 v24 h-18 z M88 56 h18 v24 h-18 z M110 56 h18 v24 h-18 z M132 56 h18 v24 h-18 z M154 56 h18 v24 h-18 z M176 56 h18 v24 h-18 z M198 56 h18 v24 h-18 z M220 56 h18 v24 h-18 z"></path>
+            <text x="130" y="112" text-anchor="middle" font-size="12" fill="#a3b0cf">10 wrong attempts</text>
+            <g class="lockbadge">
+              <rect x="76" y="126" width="108" height="26" rx="13" fill="#04120d" stroke="#4de8b0" stroke-width="1.5"></rect>
+              <text x="130" y="143" text-anchor="middle" font-size="12" fill="#4de8b0">share closed</text>
+            </g>
+          </svg>
+        <h3>Password attempts</h3>
+        <p>After ten wrong passwords the share closes itself.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section stack" id="faq">
+    <div class="sec-head">
+      <span class="eyebrow">FAQ</span>
+      <h2 class="h-sec">Everything people ask.</h2>
+    </div>
+    <div class="cats" role="group" aria-label="Filter the questions">
+        <button type="button" class="cat on" aria-pressed="true" data-cat="all">All</button>
+        <button type="button" class="cat" aria-pressed="false" data-cat="size">Size &amp; storage</button>
+        <button type="button" class="cat" aria-pressed="false" data-cat="privacy">Privacy &amp; security</button>
+        <button type="button" class="cat" aria-pressed="false" data-cat="reliability">Reliability</button>
+        <button type="button" class="cat" aria-pressed="false" data-cat="using">Using it</button>
+        <button type="button" class="cat" aria-pressed="false" data-cat="project">The project</button>
+    </div>
+    <div class="qas">
+      <details class="qa" id="is-there-a-file-size-limit" data-cat="size">
+        <summary><span>Is there a file size limit?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       No. Because nothing is uploaded, there is no storage quota to hit. Transfers
       are streamed in small chunks and written straight to disk, so a 50 GB file
       uses no more memory than a 5 MB one. The practical limits are your connection
       speed and the recipient's free disk space.
     </p>
-
-    <h3>Where are my files stored?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="where-are-my-files-stored" data-cat="size">
+        <summary><span>Where are my files stored?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Nowhere. There is no bucket, no disk, no temporary copy. When the transfer
       finishes, the only copies that exist are the sender's original and the
       recipient's download.
     </p>
-
-    <h3>What does the server actually see?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="can-i-send-more-than-one-file" data-cat="size">
+        <summary><span>Can I send more than one file?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Yes, up to 64 at a time. The recipient can take them individually, or download
+      the whole set as a single <code>.zip</code>. The archive is assembled as the
+      bytes arrive rather than built up first, so it starts saving immediately and
+      never has to fit in memory.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="what-does-the-server-actually-see" data-cat="privacy">
+        <summary><span>What does the server actually see?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Being precise, because "nothing" would be an overstatement: to introduce the
       two browsers, the server briefly holds how many files a share has and how
       large they are, plus an encrypted copy of the file list that it cannot read.
@@ -87,67 +309,44 @@
       how often shares can be created and wrong links tried. None of this is
       written to disk, and all of it disappears when the share ends.
     </p>
-    <p>
+          <p>
       Search engine crawlers are recorded by name — that Googlebot visited, and
       which page it asked for — so we can tell whether the site is being indexed.
       No address is stored with it, and ordinary visits are not recorded at all.
     </p>
-    <p>
+          <p>
       To know whether anyone uses it, the server counts two numbers per day: how
       many shares were created and how many recipients connected. Nothing is
       attached to those counts — no address, no link, no file name or size — and
       each day's totals are written down only once that day is over, so they say
       nothing about who used it or when.
     </p>
-    <p>
+          <p>
       What it never sees is file <em>contents</em>.
     </p>
-
-    <h3>Is the transfer encrypted?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="is-the-transfer-encrypted" data-cat="privacy">
+        <summary><span>Is the transfer encrypted?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Yes, and not optionally. WebRTC data channels are encrypted with DTLS as part
       of the protocol — there is no mode in which the data crosses the network in
       the clear.
     </p>
-    <p>
+          <p>
       It is also encrypted against us. The secret after the <code>#</code> in every
       link never reaches our server, and the file list and everything the two
       browsers say to each other while connecting are encrypted with it. So neither
       we, nor anyone who took over our server, could read your file names or slip
       in between the two browsers.
     </p>
-
-    <h3>Do I have to keep the tab open?</h3>
-    <p>
-      Yes. Your browser is serving the file, so closing the tab ends the share the
-      same way unplugging a server would. Recipients who are mid-download are told
-      the share has ended.
-    </p>
-
-    <h3>What if the connection drops half way?</h3>
-    <p>
-      The transfer picks up where it stopped. If the direct connection between the
-      two browsers breaks — Wi-Fi drops, a laptop switches networks, a router
-      restarts — both pages keep trying to reconnect for up to ten minutes, and the
-      download continues from the last byte that arrived instead of starting over.
-      That works for single files and for a ZIP of several. A hiccup on our server
-      does not interrupt a transfer at all, because the files never pass through it.
-    </p>
-    <p>
-      What cannot be resumed is a closed tab or a reloaded page on either side: the
-      sender's browser is the only copy of the files, and a download the browser
-      has given up on cannot be continued. Then it starts from the beginning.
-    </p>
-
-    <h3>How long does a link last?</h3>
-    <p>
-      Until you close the tab, or four hours of inactivity, whichever comes first.
-      Links are not meant to be permanent — for anything long-lived you want actual
-      hosting, not a peer-to-peer transfer.
-    </p>
-
-    <h3>Can someone guess my link?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="can-someone-guess-my-link" data-cat="privacy">
+        <summary><span>Can someone guess my link?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       No. The words at the start of a link are only a label; what opens the share
       is the random 128-bit secret after the <code>#</code>, and guessing that is
       not realistic. The server also cuts off anyone who keeps trying wrong links.
@@ -155,85 +354,146 @@
       connects": nobody sees anything, not even the file names, until you let them
       in.
     </p>
-
-    <h3>Can several people download the same share?</h3>
-    <p>
-      Yes. Each recipient gets their own direct connection to you, and you can watch
-      their progress individually. Bear in mind you are uploading to each of them
-      separately, so ten recipients means ten times the upload.
-    </p>
-
-    <h3>Can I send more than one file?</h3>
-    <p>
-      Yes, up to 64 at a time. The recipient can take them individually, or download
-      the whole set as a single <code>.zip</code>. The archive is assembled as the
-      bytes arrive rather than built up first, so it starts saving immediately and
-      never has to fit in memory.
-    </p>
-
-    <h3>Can I password-protect a share?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="can-i-password-protect-a-share" data-cat="privacy">
+        <summary><span>Can I password-protect a share?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Yes. Set a password when you create the link and recipients must enter it
       before they can even see the file list. Send the password separately from the
       link — a password in the same message protects nothing. After ten wrong
       passwords the share closes itself.
     </p>
-
-    <h3>The recipient cannot connect. What went wrong?</h3>
-    <p>
-      Almost always restrictive networks on both ends. A direct connection needs at
-      least one side to be reachable, and some corporate and mobile networks prevent
-      that in a way that cannot be worked around from the browser. If both sides are
-      on such a network, no direct route exists and the transfer cannot start.
-    </p>
-    <p>
-      Switching either end to a different network — a home connection, or a phone's
-      hotspot — is usually enough.
-    </p>
-
-    <h3>Which browsers work?</h3>
-    <p>
-      Any current version of Chrome, Edge, Firefox, Safari or their mobile
-      equivalents. On browsers that support it, downloads stream directly to disk;
-      elsewhere the file is assembled in memory first, which the page will tell you,
-      and which makes very large files unreliable.
-    </p>
-
-    <h3>How do I report misuse?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="how-do-i-report-misuse" data-cat="privacy">
+        <summary><span>How do I report misuse?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Send the share link and what is wrong with it to <!--contact-address-->.
       If the share is still live we close it, which also stops a transfer in
       progress. We cannot see what was sent, so we cannot check the contents
       ourselves; the <a href="/terms">terms of use</a> say what is not allowed.
     </p>
-
-    <h3>Is it free?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="what-if-the-connection-drops-half-way" data-cat="reliability">
+        <summary><span>What if the connection drops half way?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      The transfer picks up where it stopped. If the direct connection between the
+      two browsers breaks — Wi-Fi drops, a laptop switches networks, a router
+      restarts — both pages keep trying to reconnect for up to ten minutes, and the
+      download continues from the last byte that arrived instead of starting over.
+      That works for single files and for a ZIP of several. A hiccup on our server
+      does not interrupt a transfer at all, because the files never pass through it.
+    </p>
+          <p>
+      What cannot be resumed is a closed tab or a reloaded page on either side: the
+      sender's browser is the only copy of the files, and a download the browser
+      has given up on cannot be continued. Then it starts from the beginning.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="the-recipient-cannot-connect-what-went-wrong" data-cat="reliability">
+        <summary><span>The recipient cannot connect. What went wrong?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Almost always restrictive networks on both ends. A direct connection needs at
+      least one side to be reachable, and some corporate and mobile networks prevent
+      that in a way that cannot be worked around from the browser. If both sides are
+      on such a network, no direct route exists and the transfer cannot start.
+    </p>
+          <p>
+      Switching either end to a different network — a home connection, or a phone's
+      hotspot — is usually enough.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="how-long-does-a-link-last" data-cat="reliability">
+        <summary><span>How long does a link last?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Until you close the tab, or four hours of inactivity, whichever comes first.
+      Links are not meant to be permanent — for anything long-lived you want actual
+      hosting, not a peer-to-peer transfer.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="do-i-have-to-keep-the-tab-open" data-cat="using">
+        <summary><span>Do I have to keep the tab open?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Yes. Your browser is serving the file, so closing the tab ends the share the
+      same way unplugging a server would. Recipients who are mid-download are told
+      the share has ended.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="can-several-people-download-the-same-share" data-cat="using">
+        <summary><span>Can several people download the same share?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Yes. Each recipient gets their own direct connection to you, and you can watch
+      their progress individually. Bear in mind you are uploading to each of them
+      separately, so ten recipients means ten times the upload.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="which-browsers-work" data-cat="using">
+        <summary><span>Which browsers work?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
+      Any current version of Chrome, Edge, Firefox, Safari or their mobile
+      equivalents. On browsers that support it, downloads stream directly to disk;
+      elsewhere the file is assembled in memory first, which the page will tell you,
+      and which makes very large files unreliable.
+    </p>
+        </div>
+      </details>
+      <details class="qa" id="is-it-free" data-cat="project">
+        <summary><span>Is it free?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Yes, with no account and no limits. It costs very little to run precisely
       because the files never touch the server. If it saved you a trip to a
       file-hosting site, there is a tip button in the header.
     </p>
-
-    <h3>Can I run it myself?</h3>
-    <p>
+        </div>
+      </details>
+      <details class="qa" id="can-i-run-it-myself" data-cat="project">
+        <summary><span>Can I run it myself?</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="qa-a">
+          <p>
       Yes — it is a small self-contained Node application and self-hosting is a
       reasonable thing to want for something handling your files.
       <!--source-sentence-->
     </p>
-  </article>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <nav class="links" aria-label="More">
+    <a class="link-card" href="/"><span>Send a file</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+    <a class="link-card" href="/send-large-files"><span>Sending large files without an account</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+    <a class="link-card" href="/terms"><span>Terms of use</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+  </nav>
 </main>
 
-<footer>
-  <div class="ftr-row">
+<footer class="ftr">
+  <nav>
     <a href="/">Send a file</a>
     <a href="https://aurorahosting.nl">Aurora Hosting</a>
     <a href="/terms">Terms</a>
     <!--contact-link-->
     <!--source-link-->
-    <span class="copyright">&copy; 2026 Aurora Hosting</span>
-  </div>
+  </nav>
+  <span>&copy; 2026 Aurora Hosting</span>
 </footer>
 
+</div>
 </div>
 <script type="module" src="/build/faq.js"></script>
 </body>

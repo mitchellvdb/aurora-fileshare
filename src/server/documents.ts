@@ -108,6 +108,20 @@ function contactAddress(): string {
 }
 
 /**
+ * The animated background every page sits on: a grid, two aurora ribbons,
+ * drifting blobs and 36 twinkling particles. One copy here rather than seven in
+ * the pages; the particle positions are in styles.css (.dot.d1 ... .dot.d36),
+ * because the CSP allows no inline style.
+ */
+function backgroundHtml(): string {
+  const dots = Array.from({ length: 36 }, (_, i) => `<span class="dot d${i + 1}"></span>`).join('');
+  return '<div class="bg" aria-hidden="true"><div class="grid"></div>'
+    + '<div class="ribbon"></div><div class="ribbon two"></div>'
+    + '<div class="blob a"></div><div class="blob b"></div><div class="blob c"></div><div class="blob d"></div>'
+    + dots + '</div>';
+}
+
+/**
  * Body substitutions shared by every document. Applied to the FAQ before its
  * answers are read for structured data, or a placeholder comment would end up
  * inside the JSON-LD.
@@ -117,7 +131,8 @@ function substitute(html: string): string {
     .split('<!--source-link-->').join(sourceLink())
     .split('<!--source-sentence-->').join(sourceSentence())
     .split('<!--contact-link-->').join(contactLink())
-    .split('<!--contact-address-->').join(contactAddress());
+    .split('<!--contact-address-->').join(contactAddress())
+    .split('<!--background-->').join(backgroundHtml());
 }
 
 function donateMeta(): string {

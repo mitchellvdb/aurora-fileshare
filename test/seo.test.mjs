@@ -136,7 +136,8 @@ function extractLd(html) {
   check('faq: typed as FAQPage', faqLd[0]?.['@type'] === 'FAQPage');
 
   const marked = (faqLd[0]?.mainEntity ?? []).map((q) => q.name);
-  const onPage = [...faqHtml.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)]
+  // The questions are the <summary> lines of the FAQ's <details> elements.
+  const onPage = [...faqHtml.matchAll(/<summary[^>]*>([\s\S]*?)<\/summary>/g)]
     .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
 
   check('faq: marks up every question on the page',
@@ -170,8 +171,15 @@ function extractLd(html) {
         problems.length === 0, problems.join(' | '));
 
       if (label === 'faq') {
-        const headings = await page.$$eval('#faq h3', (els) => els.length);
+        const headings = await page.$$eval('#faq details.qa summary', (els) => els.length);
         check('faq: questions visible in the DOM', headings > 8, String(headings));
+        // The category chips filter the list, and "All" brings everything back.
+        await page.click('.cat[data-cat="project"]');
+        const shown = await page.$$eval('#faq details.qa', (els) => els.filter((e) => !e.hidden).length);
+        check('faq: a category shows only its questions', shown > 0 && shown < headings, `${shown} of ${headings}`);
+        await page.click('.cat[data-cat="all"]');
+        const all = await page.$$eval('#faq details.qa', (els) => els.filter((e) => !e.hidden).length);
+        check('faq: "All" shows every question again', all === headings, `${all} of ${headings}`);
         const donate = await page.$('#donate-slot a.donate');
         check('faq: tip button rendered here too', donate !== null);
       }

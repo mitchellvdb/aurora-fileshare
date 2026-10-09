@@ -224,6 +224,31 @@ from the Proxmox host, call it by its full path (`pct exec 112 --
 /usr/local/bin/fileshare-close <link>`), since `pct exec` leaves `/usr/local/bin`
 out of `PATH`.
 
+## Design
+
+The October 2026 redesign came as a design handoff (home + FAQ, static HTML with
+inline CSS) and was carried over to every page. What changed in carrying it over:
+
+- **No inline style or script.** The CSP forbids both, so every `style=""` became
+  a class in `public/styles.css`, and the FAQ's category filter lives in
+  `src/client/faq.ts`.
+- **Fonts are self-hosted** (`public/fonts/`, see its README): Bricolage
+  Grotesque for headings, Instrument Sans for text, JetBrains Mono for labels.
+  The handoff loaded them from Google Fonts, which would have handed every
+  visitor's address to Google.
+- **One background for all pages.** The grid, aurora ribbons, blobs and 36
+  particles are inserted by the server at `<!--background-->`
+  (`documents.ts`); the particle positions are in the stylesheet.
+- **The "how it works" stage runs on a 12-second loop**, in three phases on the
+  home page (`.loop3`) and four on the FAQ (`.loop4`); the step cards under it
+  are timed against the same 12 s (`.loop3-steps`, `.loop4-steps`). Change the
+  length in one place and it must change in all of them.
+- `prefers-reduced-motion` stops every animation; `data-motion="off"` on an
+  ancestor does the same. On phones the blur-heavy blobs are reduced.
+- Class names the client code builds (`.btn`, `.btn-secondary`, `.file*`,
+  `.recipient`, `.bar-fill`, ...) kept their meaning, so the transfer logic did
+  not change.
+
 ## Cache busting
 
 Bundles and the stylesheet are served under content-hashed names

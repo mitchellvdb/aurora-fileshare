@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What "free" actually means on file transfer sites — Aurora FileShare</title>
 <meta name="color-scheme" content="dark">
+<link rel="preload" href="/fonts/instrument-sans.2ee17598.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/bricolage-grotesque.a97804dc.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="/build/maint.js" defer></script>
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -13,26 +15,29 @@
 </head>
 <body>
 <div class="page">
-<div class="aurora" aria-hidden="true"></div>
-<div class="aurora-fade" aria-hidden="true"></div>
+<!--background-->
+<div class="wrap">
 
 <header class="hdr">
-  <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>Aurora FileShare</a>
-  <div class="right">
-    <a class="lnk-quiet" href="/faq">How it works &amp; FAQ</a>
+  <a class="brand" href="/"><img src="/icon.svg" alt="" width="34" height="34">Aurora FileShare</a>
+  <nav class="hdr-nav">
+    <a class="pill-link" href="/faq">How it works &amp; FAQ</a>
     <span id="donate-slot" hidden></span>
-  </div>
+    <a class="btn btn-small" href="/">Send a file</a>
+  </nav>
 </header>
 
 <main>
-  <p class="kicker">Guide</p>
-  <h1>What "free" actually means on file transfer sites.</h1>
-  <p class="lede">
+  <section class="page-head">
+    <p class="badge rise d1"><span class="pill-dot"></span>Guide</p>
+    <h1 class="h-hero h-page rise d2">What "free" actually means on file transfer sites.</h1>
+    <p class="lede rise d3">
     Every free service is paid for by something. Working out which model you are
     using tells you what you are actually giving up in exchange.
-  </p>
+    </p>
+  </section>
 
-  <article class="card prose">
+  <article class="prose">
     <h2>Free is a business model, not the absence of one</h2>
     <p>
       Storing a stranger's file costs money — the disk it occupies, the
@@ -159,18 +164,19 @@
   </article>
 </main>
 
-<footer>
-  <div class="ftr-row">
+<footer class="ftr">
+  <nav>
     <a href="/">Send a file</a>
     <a href="/faq">Documentation &amp; FAQ</a>
     <a href="https://aurorahosting.nl">Aurora Hosting</a>
     <a href="/terms">Terms</a>
     <!--contact-link-->
     <!--source-link-->
-    <span class="copyright">&copy; 2026 Aurora Hosting</span>
-  </div>
+  </nav>
+  <span>&copy; 2026 Aurora Hosting</span>
 </footer>
 
+</div>
 </div>
 <script type="module" src="/build/faq.js"></script>
 </body>
