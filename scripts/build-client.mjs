@@ -29,7 +29,7 @@ const shared = {
  * to serve, and the files can then be cached forever.
  */
 const pages = {
-  entryPoints: ['src/client/upload.ts', 'src/client/download.ts', 'src/client/faq.ts'],
+  entryPoints: ['src/client/upload.ts', 'src/client/download.ts', 'src/client/faq.ts', 'src/client/guide.ts'],
   outdir: 'public/build',
   entryNames: dev ? '[name]' : '[name].[hash]',
   metafile: true,

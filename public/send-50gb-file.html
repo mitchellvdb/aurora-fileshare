@@ -28,9 +28,9 @@
 </header>
 
 <main>
-  <section class="page-head">
+  <section class="page-head centered">
     <p class="badge rise d1"><span class="pill-dot"></span>Guide</p>
-    <h1 class="h-hero h-page rise d2">How to send a 50&nbsp;GB file for free.</h1>
+    <h1 class="h-hero h-page rise d2">How to send a <span class="under">50&nbsp;GB</span> file for free.</h1>
     <p class="lede rise d3">
     Fifty gigabytes is where most transfer services stop being free, and where
     several stop working at all. Here is what actually goes wrong at that size,
@@ -38,7 +38,7 @@
     </p>
   </section>
 
-  <article class="prose">
+  <article class="guide">
     <h2>Fifty gigabytes is not just ten times five</h2>
     <p>
       A 5 GB transfer and a 50 GB transfer fail in different ways. The small one
@@ -59,6 +59,38 @@
       you sent it to. Only the first leg runs on your upload connection, which
       on most consumer lines is the far slower half.
     </p>
+
+    <div class="wide glass pad" aria-hidden="true">
+      <div class="scroll">
+        <div class="route">
+          <span class="rowlabel">A service that stores your file: the bytes cross twice</span>
+          <div class="lane">
+            <span class="node">You</span>
+            <div class="leg">
+              <span class="legl">leg 1 &middot; your upload</span>
+              <span class="track slow"><i class="bit v"></i><i class="bit v b3"></i></span>
+            </div>
+            <span class="node stored">Server storage</span>
+            <div class="leg">
+              <span class="legl">leg 2 &middot; their download</span>
+              <span class="track dashed"></span>
+            </div>
+            <span class="node">Recipient</span>
+          </div>
+          <span class="route-gap"></span>
+          <span class="rowlabel live">Direct: the bytes cross once</span>
+          <div class="lane">
+            <span class="node">You</span>
+            <div class="leg">
+              <span class="legl">one leg</span>
+              <span class="track live"><i class="bit"></i><i class="bit b2"></i><i class="bit b3"></i><i class="bit b4"></i></span>
+            </div>
+            <span class="node">Recipient</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <p>
       What that means for 50 GB, before the recipient has downloaded anything at
       all:
@@ -68,6 +100,36 @@
       <li>At <strong>40 Mbit/s</strong> — roughly <strong>3 hours</strong></li>
       <li>At <strong>100 Mbit/s</strong> — a little over <strong>an hour</strong></li>
     </ul>
+
+    <div class="wide glass pad race">
+      <div class="race-head">
+        <div class="race-title">
+          <span class="eyebrow">Try it</span>
+          <span class="race-q">How long until the recipient can start?</span>
+        </div>
+        <div class="seg" role="group" aria-label="Your upload speed">
+          <button type="button" class="speed on" aria-pressed="true" data-speed="10">10 Mbit/s</button>
+          <button type="button" class="speed" aria-pressed="false" data-speed="40">40 Mbit/s</button>
+          <button type="button" class="speed" aria-pressed="false" data-speed="100">100 Mbit/s</button>
+        </div>
+      </div>
+      <div class="race-row">
+        <div class="race-label">
+          <span class="rowlabel">Service that stores your file: the recipient waits for your upload to finish</span>
+          <span class="big violet" id="waittext" aria-live="polite">roughly 11 hours</span>
+        </div>
+        <div class="rtrack"><div class="rbar store"><div class="rbar-fill"></div></div></div>
+      </div>
+      <div class="race-row">
+        <div class="race-label">
+          <span class="rowlabel">Direct: the recipient receives as soon as they open the link</span>
+          <span class="big accent">straight away</span>
+        </div>
+        <div class="rtrack"><div class="rbar direct"></div><span class="rpulse"></span></div>
+      </div>
+      <p class="note">Based on the figures above: 50 GB at the chosen upload speed. This is the upload step alone, before the recipient has downloaded anything.</p>
+    </div>
+
     <p>
       Those hours are the real cost of the upload step, and they are why "just
       use a transfer site" stops being good advice somewhere around this size.
@@ -110,6 +172,19 @@
       minutes</strong>. Slower connections take proportionally longer, but the
       shape holds — one leg instead of two.
     </p>
+
+    <div class="wide glass pad measured">
+      <div class="m-stat">
+        <span class="eyebrow">Measured</span>
+        <span class="big accent">about 50 MB/s</span>
+        <span class="m-sub">between two gigabit connections</span>
+      </div>
+      <div class="m-bar">
+        <div class="m-head"><span class="m-title">39 GB transfer</span><span class="mono m-time">15 to 20 minutes</span></div>
+        <div class="rtrack pill" aria-hidden="true"><div class="rbar solid"><div class="rbar-fill mfill"></div></div></div>
+      </div>
+    </div>
+
     <p>
       <a href="/">Aurora FileShare</a> works this way, which is why it has no
       size limit to quote. There is no storage quota to hit because nothing is
@@ -171,6 +246,10 @@
       file transfer sites</a>.
     </p>
   </article>
+  <div class="cta-solo">
+    <a class="link-card strong" href="/"><span>Send a file</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+  </div>
+
 </main>
 
 <footer class="ftr">
@@ -187,6 +266,6 @@
 
 </div>
 </div>
-<script type="module" src="/build/faq.js"></script>
+<script type="module" src="/build/guide.js"></script>
 </body>
 </html>

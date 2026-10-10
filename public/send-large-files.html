@@ -28,9 +28,9 @@
 </header>
 
 <main>
-  <section class="page-head">
+  <section class="page-head centered">
     <p class="badge rise d1"><span class="pill-dot"></span>Guide</p>
-    <h1 class="h-hero h-page rise d2">Send large files without an account.</h1>
+    <h1 class="h-hero h-page rise d2">Send large files <span class="under">without</span> an account.</h1>
     <p class="lede rise d3">
     Most transfer services want you to sign up before they will move anything
     substantial. Here is why, what a free tier usually means, and how a transfer
@@ -38,7 +38,7 @@
     </p>
   </section>
 
-  <article class="prose">
+  <article class="guide">
     <h2>Why transfer services have limits at all</h2>
     <p>
       When you upload a file to a transfer service, that file has to live
@@ -87,6 +87,49 @@
         it is just worth reading rather than assuming.
       </li>
     </ul>
+
+    <div class="wide glass tiles">
+      <div class="tile">
+        <svg viewBox="0 0 160 100" role="img" aria-label="A block too big to fit through a narrow gate.">
+            <rect width="160" height="100" rx="14" fill="#0b1020"></rect>
+            <rect x="96" y="8" width="8" height="26" rx="2" fill="#ffb86b"></rect>
+            <rect x="96" y="62" width="8" height="30" rx="2" fill="#ffb86b"></rect>
+            <rect class="t1blk" x="14" y="28" width="30" height="44" rx="5" fill="#4de8b0" fill-opacity=".8"></rect>
+          </svg>
+        <span class="tile-name">A size ceiling</span>
+      </div>
+      <div class="tile">
+        <svg viewBox="0 0 160 100" role="img" aria-label="A timer ring running down.">
+            <rect width="160" height="100" rx="14" fill="#0b1020"></rect>
+            <circle cx="80" cy="50" r="26" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="7"></circle>
+            <circle class="t2ring" cx="80" cy="50" r="26" fill="none" stroke="#4de8b0" stroke-width="7" stroke-linecap="round" transform="rotate(-90 80 50)"></circle>
+            <circle cx="80" cy="50" r="3" fill="#e8eefc"></circle>
+          </svg>
+        <span class="tile-name">An expiry window</span>
+      </div>
+      <div class="tile">
+        <svg viewBox="0 0 160 100" role="img" aria-label="A visitor stopped at a locked wall.">
+            <rect width="160" height="100" rx="14" fill="#0b1020"></rect>
+            <rect x="106" y="8" width="10" height="84" rx="3" fill="#fff" fill-opacity=".18"></rect>
+            <circle cx="111" cy="50" r="12" fill="#0b1020" stroke="#9a86ff" stroke-width="2"></circle>
+            <path d="M107 48 v-2 a4 4 0 0 1 8 0 v2" fill="none" stroke="#9a86ff" stroke-width="1.6"></path>
+            <rect x="106" y="48" width="10" height="8" rx="2" fill="#9a86ff"></rect>
+            <circle class="t3ping" cx="62" cy="50" r="14" fill="none" stroke="#4de8b0" stroke-width="2"></circle>
+            <circle class="t3dot" cx="22" cy="50" r="9" fill="#4de8b0"></circle>
+          </svg>
+        <span class="tile-name">An account wall</span>
+      </div>
+      <div class="tile">
+        <svg viewBox="0 0 160 100" role="img" aria-label="The download link goes away while other copies remain.">
+            <rect width="160" height="100" rx="14" fill="#0b1020"></rect>
+            <rect class="t4r1" x="20" y="16" width="120" height="20" rx="6" fill="#4de8b0" fill-opacity=".35" stroke="#4de8b0"></rect>
+            <rect x="20" y="40" width="120" height="20" rx="6" fill="#9a86ff" fill-opacity=".25" stroke="#9a86ff"></rect>
+            <rect x="20" y="64" width="120" height="20" rx="6" fill="#ffb86b" fill-opacity=".22" stroke="#ffb86b"></rect>
+          </svg>
+        <span class="tile-name">A retention policy that is not quite deletion</span>
+      </div>
+    </div>
+
     <p>
       None of that is dishonest. It is the arithmetic of storing other people's
       data. But it does mean "free" often describes a trial of a paid product
@@ -110,6 +153,54 @@
       needs in order to find the other. That step is called signalling. It moves
       a few kilobytes and then steps out of the way. It never receives the file.
     </p>
+
+    <div class="wide glass stage loop8">
+      <svg viewBox="0 0 640 290" role="img" aria-label="Animation: both browsers briefly exchange connection details through the server, then the server steps aside and the file flows directly between the browsers.">
+            <g class="lp sigl">
+              <path class="sigdash" d="M190 165 L265 80" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+              <path class="sigdash" d="M450 165 L375 80" fill="none" stroke="#9a86ff" stroke-width="2"></path>
+            </g>
+
+            <g class="lp server">
+              <rect class="lp srvglow" x="234" y="14" width="172" height="76" rx="16" fill="none" stroke="#9a86ff" stroke-width="3"></rect>
+              <rect x="240" y="20" width="160" height="64" rx="12" fill="#0e1328" stroke="#9a86ff" stroke-opacity=".7" stroke-width="1.5"></rect>
+              <rect x="258" y="34" width="124" height="9" rx="4.5" fill="#9a86ff" fill-opacity=".35"></rect>
+              <rect x="258" y="48" width="124" height="9" rx="4.5" fill="#9a86ff" fill-opacity=".2"></rect>
+              <text x="320" y="75" text-anchor="middle" font-size="12" fill="#d6ceff">Aurora server</text>
+            </g>
+            <text x="320" y="116" text-anchor="middle" font-size="12" fill="#a3b0cf">signalling: a few kilobytes</text>
+
+            <rect x="40" y="165" width="150" height="80" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="40" y="165" width="150" height="26" rx="13" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="56" cy="178" r="3.5" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="69" cy="178" r="3.5" fill="#fff" fill-opacity=".3"></circle>
+            <rect x="56" y="204" width="118" height="28" rx="8" fill="#4de8b0" fill-opacity=".14" stroke="#4de8b0" stroke-opacity=".6"></rect>
+            <text x="68" y="223" font-size="13" fill="#e8eefc">big-file.zip</text>
+            <text x="115" y="272" text-anchor="middle" font-size="14" fill="#e8eefc">Sender</text>
+
+            <rect x="450" y="165" width="150" height="80" rx="14" fill="#0b1020" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"></rect>
+            <rect x="450" y="165" width="150" height="26" rx="13" fill="#fff" fill-opacity=".06"></rect>
+            <circle cx="466" cy="178" r="3.5" fill="#fff" fill-opacity=".3"></circle>
+            <circle cx="479" cy="178" r="3.5" fill="#fff" fill-opacity=".3"></circle>
+            <rect x="466" y="204" width="118" height="28" rx="8" fill="#fff" fill-opacity=".05" stroke="#fff" stroke-opacity=".25"></rect>
+            <rect class="lp rfill" x="466" y="204" width="118" height="28" rx="8" fill="#4de8b0" fill-opacity=".4"></rect>
+            <text x="478" y="223" font-size="13" fill="#e8eefc">big-file.zip</text>
+            <text x="525" y="272" text-anchor="middle" font-size="14" fill="#e8eefc">Recipient</text>
+
+            <g class="lp direct">
+              <path d="M190 218 L450 218" fill="none" stroke="#4de8b0" stroke-opacity=".5" stroke-width="2"></path>
+              <rect class="pkt" x="190" y="214" width="9" height="9" rx="2.5" fill="#4de8b0"></rect>
+              <rect class="pkt p2" x="190" y="214" width="9" height="9" rx="2.5" fill="#4de8b0"></rect>
+              <rect class="pkt p3" x="190" y="214" width="9" height="9" rx="2.5" fill="#4de8b0"></rect>
+              <rect class="pkt p4" x="190" y="214" width="9" height="9" rx="2.5" fill="#4de8b0"></rect>
+              <text x="320" y="244" text-anchor="middle" font-size="12" fill="#4de8b0">the file never touches the server</text>
+            </g>
+
+            <g transform="translate(190 165)"><circle class="lp dotA" r="6" fill="#9a86ff"></circle></g>
+            <g transform="translate(450 165)"><circle class="lp dotB" r="6" fill="#9a86ff"></circle></g>
+          </svg>
+    </div>
+
     <p>
       That is how <a href="/">Aurora FileShare</a> works, and it is why there is
       no size limit: there is no storage quota to hit, because there is no
@@ -189,23 +280,31 @@
     </p>
   </article>
 
+
   <section class="section stack">
     <div class="sec-head"><h2 class="h-sec">Try it</h2></div>
-    <div class="mini-steps">
-      <div class="step">
+    <div class="steps-grid loop9-steps">
+      <div class="step s1">
         <span class="num">01</span>
         <p><a href="/">Pick your files</a> — they stay on your device.</p>
+        <span class="bar-line"></span>
       </div>
-      <div class="step">
+      <div class="step s2">
         <span class="num">02</span>
         <p>Send the link you get back to whoever needs them.</p>
+        <span class="bar-line"></span>
       </div>
-      <div class="step">
+      <div class="step s3">
         <span class="num">03</span>
         <p>The transfer runs browser to browser, encrypted, at whatever speed your connections allow.</p>
+        <span class="bar-line"></span>
       </div>
     </div>
   </section>
+  <div class="cta-solo">
+    <a class="link-card strong" href="/"><span>Send a file</span><span class="arr" aria-hidden="true">&rarr;</span></a>
+  </div>
+
 </main>
 
 <footer class="ftr">
@@ -222,6 +321,6 @@
 
 </div>
 </div>
-<script type="module" src="/build/faq.js"></script>
+<script type="module" src="/build/guide.js"></script>
 </body>
 </html>
