@@ -1,4 +1,5 @@
 import { uid } from './common.js';
+import { Crc32, CRC_INITIAL } from './crc32.js';
 import type { SendStats } from './diagnostics.js';
 import {
   BUFFER_HIGH_WATER,
@@ -90,6 +91,19 @@ export class PeerLink {
 
 // --- Sending ----------------------------------------------------------------
 
+/**
+ * The sender's running checksum of one file, kept outside FileSender because
+ * a reconnect gets a new channel and a new FileSender, and the resumed
+ * transfer has to pick the checksum up where the old one stopped. `at` maps
+ * byte offsets to the CRC register there, for the most recent chunks only:
+ * a resume lands at most a send buffer behind what was sent.
+ */
+export interface SendChecksum {
+  at: Map<number, number>;
+}
+export type SendChecksums = Map<string, SendChecksum>;
+const CHECKPOINTS_KEPT = 512; // 512 x 256 KiB = the last 128 MiB of every file
+
 export interface SendProgress {
   fileId: string;
   name: string;
@@ -123,6 +137,7 @@ export class FileSender {
     private readonly files: Map<string, File>,
     private readonly onProgress: (p: SendProgress) => void,
     private readonly pc?: RTCPeerConnection,
+    private readonly checksums: SendChecksums = new Map(),
   ) {
     this.dc.bufferedAmountLowThreshold = BUFFER_LOW_WATER;
     this.dc.addEventListener('message', (ev) => {
@@ -133,7 +148,7 @@ export class FileSender {
       } catch {
         return;
       }
-      if (msg.t === 'req') this.enqueue(msg.reqId, msg.fileId, msg.from ?? 0);
+      if (msg.t === 'req') this.enqueue(msg.reqId, msg.fileId, msg.from ?? 0, msg.crc);
       else if (msg.t === 'cancel') this.cancelled.add(msg.reqId);
     });
   }
@@ -143,8 +158,8 @@ export class FileSender {
     this.reply({ t: 'bye' });
   }
 
-  private enqueue(reqId: string, fileId: string, from: number): void {
-    this.queue = this.queue.then(() => this.sendFile(reqId, fileId, from)).catch((err) => {
+  private enqueue(reqId: string, fileId: string, from: number, crc?: number): void {
+    this.queue = this.queue.then(() => this.sendFile(reqId, fileId, from, crc)).catch((err) => {
       this.reply({ t: 'deny', reqId, reason: String(err) });
     });
   }
@@ -209,8 +224,8 @@ export class FileSender {
   }
 
   /** One disk read. Kept separate so the caller can start the next one early. */
-  private readBlock(file: File, start: number): Promise<ArrayBuffer> {
-    return file.slice(start, Math.min(start + READ_BLOCK_SIZE, file.size)).arrayBuffer();
+  private readBlock(file: File, start: number, end = Math.min(start + READ_BLOCK_SIZE, file.size)): Promise<ArrayBuffer> {
+    return file.slice(start, end).arrayBuffer();
   }
 
   /**
@@ -218,7 +233,24 @@ export class FileSender {
    * connection dropped part way and the recipient already has everything
    * before that byte, so there is no reason to send it again.
    */
-  private async sendFile(reqId: string, fileId: string, from: number): Promise<void> {
+  /**
+   * The CRC register at `from`: from the checkpoints when this sender sent
+   * those bytes itself, otherwise by reading the file's first `from` bytes
+   * again. The second is slow on a large file but only happens when a resume
+   * lands outside the window the checkpoints keep.
+   */
+  private async registerAt(file: File, fileId: string, from: number): Promise<number> {
+    if (from === 0) return CRC_INITIAL;
+    const known = this.checksums.get(fileId)?.at.get(from);
+    if (known !== undefined) return known;
+    const crc = new Crc32();
+    for (let pos = 0; pos < from; pos += READ_BLOCK_SIZE) {
+      crc.update(new Uint8Array(await this.readBlock(file, pos, Math.min(pos + READ_BLOCK_SIZE, from))));
+    }
+    return crc.state;
+  }
+
+  private async sendFile(reqId: string, fileId: string, from: number, theirCrc?: number): Promise<void> {
     const file = this.files.get(fileId);
     if (!file) {
       this.reply({ t: 'deny', reqId, reason: 'File is no longer available.' });
@@ -228,6 +260,25 @@ export class FileSender {
       this.reply({ t: 'deny', reqId, reason: 'Invalid resume position.' });
       return;
     }
+
+    // On a resume, both sides must agree on the bytes already delivered before
+    // anything is added to them. If they do not, continuing would only finish
+    // a file that is already wrong.
+    const crc = new Crc32(await this.registerAt(file, fileId, from));
+    if (from > 0 && theirCrc !== undefined && crc.value !== theirCrc) {
+      console.warn(`[fileshare] resume refused: the first ${from} bytes differ on the two sides`);
+      this.reply({
+        t: 'deny', reqId, code: 'mismatch',
+        reason: 'The part already received does not match the original, so the transfer could not continue.',
+      });
+      return;
+    }
+    let ledger = this.checksums.get(fileId);
+    if (!ledger || from === 0) {
+      ledger = { at: new Map() };
+      this.checksums.set(fileId, ledger);
+    }
+    ledger.at.set(from, crc.state);
 
     this.reply({
       t: 'begin', reqId, fileId,
@@ -274,8 +325,12 @@ export class FileSender {
         if (this.dc.bufferedAmount < chunkSize) this.starvedSends++;
         // send() copies, so handing it a view into the block is safe and saves
         // allocating a fresh buffer per message.
-        this.dc.send(block.subarray(start, end));
+        const piece = block.subarray(start, end);
+        this.dc.send(piece);
+        crc.update(piece);
         offset = blockStart + end;
+        ledger.at.set(offset, crc.state);
+        if (ledger.at.size > CHECKPOINTS_KEPT) ledger.at.delete(ledger.at.keys().next().value!);
         report({ fileId, name: file.name, sent: offset, total: file.size });
       }
     }
@@ -294,7 +349,7 @@ export class FileSender {
 
     // The throttle may have swallowed the last sample; completion must land.
     this.onProgress({ fileId, name: file.name, sent: file.size, total: file.size });
-    this.reply({ t: 'end', reqId });
+    this.reply({ t: 'end', reqId, crc: crc.value });
   }
 }
 
@@ -319,6 +374,8 @@ export interface ActiveDownload {
 interface Request extends ActiveDownload {
   /** Set once the sender's "begin" for the current reqId has arrived. */
   started: boolean;
+  /** CRC-32 of exactly the bytes that reached the sink, in order. */
+  crc: Crc32;
   resolve: () => void;
   reject: (e: Error) => void;
 }
@@ -350,6 +407,27 @@ export class FileReceiver {
   /** The sender said it is closing its tab; nothing will resume. */
   onBye: (() => void) | null = null;
 
+  /**
+   * A request went out and no "begin" came back in time. Seen in testing: a
+   * resume where both sides reported the new connection as open, yet the
+   * transfer never restarted and nothing would ever have said so. The page
+   * treats this as a lost connection and builds a new one.
+   */
+  onStall: (() => void) | null = null;
+  private watchdog: number | undefined;
+  static readonly STALL_MS = 20_000;
+
+  private armWatchdog(reqId: string): void {
+    window.clearTimeout(this.watchdog);
+    this.watchdog = window.setTimeout(() => {
+      const req = this.current;
+      if (req && req.reqId === reqId && !req.started) {
+        console.warn(`[fileshare] no answer to request ${reqId} after ${FileReceiver.STALL_MS / 1000}s`);
+        this.onStall?.();
+      }
+    }, FileReceiver.STALL_MS);
+  }
+
   constructor(private readonly onProgress: (d: ActiveDownload) => void) {
     this.report = throttle(PROGRESS_INTERVAL_MS, onProgress);
   }
@@ -373,7 +451,9 @@ export class FileReceiver {
       if (!req || this.dc !== dc) return;
       req.reqId = uid();
       req.started = false;
-      this.send({ t: 'req', reqId: req.reqId, fileId: req.fileId, from: req.received });
+      console.info(`[fileshare] resuming ${req.name || req.fileId} from byte ${req.received}`);
+      this.send({ t: 'req', reqId: req.reqId, fileId: req.fileId, from: req.received, crc: req.crc.value });
+      this.armWatchdog(req.reqId);
     });
   }
 
@@ -388,10 +468,11 @@ export class FileReceiver {
     return new Promise<void>((resolvePromise, rejectPromise) => {
       const reqId = uid();
       this.current = {
-        reqId, fileId, sink, name: '', size: 0, received: 0, started: false,
+        reqId, fileId, sink, name: '', size: 0, received: 0, started: false, crc: new Crc32(),
         resolve: resolvePromise, reject: rejectPromise,
       };
       this.send({ t: 'req', reqId, fileId, from: 0 });
+      this.armWatchdog(reqId);
     });
   }
 
@@ -444,6 +525,7 @@ export class FileReceiver {
           return;
         }
         req.started = true;
+        window.clearTimeout(this.watchdog);
         req.name = msg.name;
         req.size = msg.size;
         this.onProgress(req);
@@ -454,6 +536,14 @@ export class FileReceiver {
         if (!req || req.reqId !== msg.reqId || !req.started) return;
         if (req.received !== req.size) {
           this.failAll(`Received ${req.received} of ${req.size} bytes.`);
+          return;
+        }
+        // The last word on whether the file is right: both sides' checksum of
+        // the whole thing. A mismatch fails the download loudly - a damaged
+        // file saved without a word is the one outcome that must not happen.
+        if (msg.crc !== undefined && msg.crc !== req.crc.value) {
+          console.warn(`[fileshare] checksum mismatch on ${req.name}: sent ${msg.crc}, received ${req.crc.value}`);
+          this.failAll('The file arrived damaged, so it was not saved. Please download it again.');
           return;
         }
         this.current = null;
@@ -475,6 +565,7 @@ export class FileReceiver {
     if (!req || !req.started) return;
     const chunk = ev.data as ArrayBuffer;
     await req.sink.write(chunk);
+    req.crc.update(new Uint8Array(chunk));
     req.received += chunk.byteLength;
     this.report(req);
   }

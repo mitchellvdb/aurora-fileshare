@@ -90,6 +90,7 @@ function instrumentSender() {
   window.__drops = 0;
   window.__sentAtClose = 0;
   window.__begins = [];
+  window.__corruptAt = Infinity;
   const create = RTCPeerConnection.prototype.createDataChannel;
   RTCPeerConnection.prototype.createDataChannel = function (...args) {
     const dc = create.apply(this, args);
@@ -98,6 +99,16 @@ function instrumentSender() {
   };
   const send = RTCDataChannel.prototype.send;
   RTCDataChannel.prototype.send = function (data) {
+    // Simulated damage in transit: one byte flipped in a copy of the chunk
+    // that crosses __corruptAt. The file itself is untouched.
+    if (typeof data !== 'string' && window.__sent + data.byteLength > window.__corruptAt) {
+      const copy = new Uint8Array(data);
+      copy[Math.max(0, window.__corruptAt - window.__sent)] ^= 0xff;
+      window.__corruptAt = Infinity;
+      send.call(this, copy);
+      window.__sent += copy.byteLength;
+      return;
+    }
     send.call(this, data);
     if (typeof data === 'string') {
       try {
@@ -117,8 +128,22 @@ function instrumentSender() {
 }
 
 /** Records every status line the recipient page shows. */
-function instrumentRecipient() {
+function instrumentRecipient(loseFirstResume) {
   window.__statuses = [];
+  // Simulates the stall seen in testing: the first resume request vanishes,
+  // so the new connection is open on both sides and nothing ever restarts.
+  if (loseFirstResume) {
+    const send = RTCDataChannel.prototype.send;
+    let lost = false;
+    RTCDataChannel.prototype.send = function (data) {
+      if (!lost && typeof data === 'string' && /"t":"req"/.test(data) && !/"from":0[,}]/.test(data)) {
+        lost = true;
+        window.__lostRequest = data;
+        return;
+      }
+      return send.call(this, data);
+    };
+  }
   document.addEventListener('DOMContentLoaded', () => {
     const box = document.querySelector('#status');
     new MutationObserver(() => window.__statuses.push(box.textContent)).observe(
@@ -144,9 +169,9 @@ async function share(origin, files) {
   return { page, url: await page.$eval('#share-url', (el) => el.value) };
 }
 
-async function receive(url, dir) {
+async function receive(url, dir, loseFirstResume = false) {
   const page = await browser.newPage();
-  await page.evaluateOnNewDocument(instrumentRecipient);
+  await page.evaluateOnNewDocument(instrumentRecipient, loseFirstResume);
   mkdirSync(dir, { recursive: true });
   const cdp = await page.createCDPSession();
   await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir, eventsEnabled: true });
@@ -208,9 +233,59 @@ async function singleFileCase(label, origin, size, dropAt) {
   await sender.close(); await recipient.close();
 }
 
+/**
+ * A byte damaged in transit, optionally before a forced cut. The download
+ * must fail with a clear message and must not leave a complete file behind.
+ */
+async function damagedCase(label, origin, size, corruptAt, dropAt, expect) {
+  const file = makeFile(`${label}.bin`, size);
+  const dir = `${TMP}dl-${label}`;
+  const { page: sender, url } = await share(origin, [file]);
+  const recipient = await receive(url, dir);
+  await sender.evaluate((c, d) => { window.__corruptAt = c; window.__dropAt = d; }, corruptAt, dropAt ?? Infinity);
+  await recipient.click('#file-list button.download');
+  const failed = await recipient.waitForFunction(
+    () => /^Failed:/.test(document.querySelector('#file-list .file-status')?.textContent ?? ''),
+    { timeout: 90000 }).then(() => true, () => false);
+  const text = await recipient.$eval('#file-list .file-status', (e) => e.textContent);
+  check(`${label}: the download fails instead of finishing`, failed, text);
+  check(`${label}: and says why`, expect.test(text), text);
+  const got = await landed(dir, size, 3000);
+  check(`${label}: no complete file is left behind`, got === null, got ? 'a full-size file landed' : 'none');
+  await sender.close(); await recipient.close();
+}
+
 try {
   await startServer();
   const LOCAL = `http://127.0.0.1:${port}`;
+
+  // --- 0a. A resume request that vanishes: the watchdog must recover --------------
+  {
+    const size = 32 * MB;
+    const file = makeFile('lost-request.bin', size);
+    const dir = `${TMP}dl-lost-request`;
+    const { page: sender, url } = await share(LOCAL, [file]);
+    const recipient = await receive(url, dir, true);
+    await sender.evaluate((n) => { window.__dropAt = n; }, 20 * MB);
+    const t0 = Date.now();
+    await recipient.click('#file-list button.download');
+    const done = await recipient.waitForFunction(
+      () => document.querySelector('#file-list .file-status')?.textContent === 'Complete',
+      { timeout: 120000 }).then(() => true, () => false);
+    const lost = await recipient.evaluate(() => Boolean(window.__lostRequest));
+    const begins = await sender.evaluate(() => window.__begins);
+    check('lost request: the first resume request really vanished', lost);
+    check('lost request: the watchdog recovered and the download completed', done,
+      `${((Date.now() - t0) / 1000).toFixed(0)}s`);
+    check('lost request: it resumed rather than restarting', begins.length === 2 && begins[1] > 0, begins.join(', '));
+    const got = await landed(dir, size);
+    check('lost request: the file is byte-identical', got !== null && sha256(got.buf) === file.sha);
+    await sender.close(); await recipient.close();
+  }
+
+  // --- 0. Damage is caught, with and without a dropped connection ------------
+  await damagedCase('damaged', LOCAL, 24 * MB, 10 * MB, null, /arrived damaged/);
+  await damagedCase('damaged-before-cut', LOCAL, 32 * MB, 4 * MB, 20 * MB, /does not match the original/);
 
   // --- 1. One large file, streamed to disk ------------------------------------
   await singleFileCase('stream', LOCAL, 48 * MB, 20 * MB);

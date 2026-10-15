@@ -6,7 +6,7 @@ import {
 import { deriveKeys, newSecret, seal, unseal, type ShareKeys } from './crypto.js';
 import { renderDonateButton } from './donate.js';
 import { renderQr } from './qr.js';
-import { FileSender, PeerLink, type SendProgress } from './transfer.js';
+import { FileSender, PeerLink, type SendChecksums, type SendProgress } from './transfer.js';
 import { describeTransport, summarise } from './diagnostics.js';
 
 /**
@@ -29,6 +29,8 @@ interface Recipient {
   meter: RateMeter;
   label: string;
   sender: FileSender | null;
+  /** Running checksums per file; outlives each connection so a resume can be checked. */
+  checksums: SendChecksums;
 }
 
 const selected = new Map<string, File>();
@@ -412,7 +414,7 @@ function addRecipient(peerId: string, rid: string): void {
 
   const recipient: Recipient = {
     rid, peerId, link: null, channel: null, everConnected: false, row, bar, status, percent,
-    meter: new RateMeter(), label, sender: null,
+    meter: new RateMeter(), label, sender: null, checksums: new Map(),
   };
   recipients.set(rid, recipient);
   connect(recipient);
@@ -452,7 +454,7 @@ function connect(r: Recipient): void {
   });
 
   r.sender = new FileSender(
-    channel, selected, (p: SendProgress) => onSendProgress(r, p), link.pc,
+    channel, selected, (p: SendProgress) => onSendProgress(r, p), link.pc, r.checksums,
   );
 
   link.pc.addEventListener('connectionstatechange', () => {

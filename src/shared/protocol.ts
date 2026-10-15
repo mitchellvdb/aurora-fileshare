@@ -107,15 +107,17 @@ export interface RTCIceServerConfig {
 export type TransferMessage =
   /**
    * Downloader requests one file, starting at byte `from` (0 when absent).
-   * A non-zero `from` resumes a transfer that a dropped connection cut short.
+   * A non-zero `from` resumes a transfer that a dropped connection cut short;
+   * `crc` is then the CRC-32 of the `from` bytes the downloader already has,
+   * so the sender can confirm both sides agree on them before continuing.
    */
-  | { t: 'req'; reqId: string; fileId: string; from?: number }
+  | { t: 'req'; reqId: string; fileId: string; from?: number; crc?: number }
   /** Uploader is about to stream the file from byte `from`; binary chunks follow. */
   | { t: 'begin'; reqId: string; fileId: string; name: string; size: number; type: string; from: number }
-  /** All chunks for reqId have been sent. */
-  | { t: 'end'; reqId: string }
+  /** All chunks for reqId have been sent; `crc` is the whole file's CRC-32. */
+  | { t: 'end'; reqId: string; crc?: number }
   /** Uploader refused or hit an error. */
-  | { t: 'deny'; reqId: string; reason: string }
+  | { t: 'deny'; reqId: string; reason: string; code?: 'mismatch' }
   /** Downloader aborted a transfer in flight. */
   | { t: 'cancel'; reqId: string }
   /** The sender is closing the tab: nothing will resume, stop waiting. */

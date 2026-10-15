@@ -372,6 +372,14 @@ function recover(): void {
 window.setInterval(recover, 3_000);
 
 receiver.onBye = () => finish('The sender closed their tab, so the share has ended.');
+// No answer to a request: build a new connection, which asks again from the
+// last byte that arrived (see FileReceiver.onStall).
+receiver.onStall = () => {
+  if (over || !connected()) return;
+  everConnected = true;
+  link?.close();
+  connectionLost();
+};
 
 // --- File list and downloads ------------------------------------------------
 
