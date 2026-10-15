@@ -1,5 +1,7 @@
 /*
- * Announced-maintenance bar. Added 2026-10-03 for the rack move.
+ * Announced-maintenance bar. Added 2026-10-03 for the rack move; postponed 2026-10-11
+ * (a rack part had not arrived); set to Wednesday 14 October the same day;
+ * narrowed to that evening from ~18:45 on the day itself.
  *
  * A plain file outside the build on purpose: it can be added and removed without
  * rebuilding the client bundle, and as a 'self' script plus a 'self' stylesheet it
@@ -11,10 +13,10 @@
  */
 (function () {
   'use strict';
-  var UNTIL = Date.parse('2026-10-11T22:00:00+02:00');
-  var TEXT = 'On Saturday 10 and Sunday 11 October we are moving all our hardware into a ' +
-    'server rack. Aurora FileShare will be unavailable for part of that time. It is our ' +
-    'first time doing this, so it may take a little longer than planned.';
+  var UNTIL = Date.parse('2026-10-15T01:00:00+02:00');
+  var TEXT = 'Tonight from around 18:45 (CEST) we are switching everything off to move our ' +
+    'hardware into a server rack. Aurora FileShare will be unavailable for a few hours. It is ' +
+    'our first time doing this, so it may take a little longer than planned.';
 
   if (!(Date.now() < UNTIL)) return;
 
