@@ -24,6 +24,16 @@ interface PendingDownload {
 
 const pending = new Map<string, PendingDownload>();
 
+/**
+ * Downloads this worker instance is currently streaming. Chrome stops a
+ * service worker it considers idle, and a stream it was serving then simply
+ * ends - seen in practice as a 3 GB file "finished" in Chrome's download bar
+ * at about 600 MB. The page therefore pings while it writes (save.ts), which
+ * keeps the worker alive, and asks about its own download by id: a worker that
+ * was stopped and started again has an empty set, and says so.
+ */
+const streaming = new Set<string>();
+
 /** An id nobody fetches would leak its stream, so drop stale ones. */
 const STALE_MS = 60_000;
 
@@ -48,12 +58,15 @@ sw.addEventListener('activate', (event) => {
 sw.addEventListener('message', (event: ExtendableMessageEvent) => {
   const data = event.data as
     | { type: 'register'; id: string; name: string; size: number; mime: string; stream: ReadableStream<Uint8Array> }
-    | { type: 'ping' }
+    | { type: 'ping'; id?: string }
     | undefined;
   if (!data) return;
 
   if (data.type === 'ping') {
-    event.source?.postMessage({ type: 'pong' });
+    const id = data.id;
+    event.source?.postMessage({
+      type: 'pong', id, alive: id === undefined || streaming.has(id) || pending.has(id),
+    });
     return;
   }
 
@@ -98,6 +111,7 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 
   // One-shot: a stream can only be consumed once.
   pending.delete(id);
+  streaming.add(id);
 
   const headers = new Headers({
     'Content-Type': entry.mime,

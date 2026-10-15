@@ -491,6 +491,8 @@ export class FileReceiver {
     const req = this.current;
     this.current = null;
     if (!req) return;
+    // Stop the sender too, or it uploads the rest of the file for nothing.
+    this.send({ t: 'cancel', reqId: req.reqId });
     void req.sink.abort(reason);
     req.reject(new Error(reason));
   }
@@ -534,6 +536,7 @@ export class FileReceiver {
 
       if (msg.t === 'end') {
         if (!req || req.reqId !== msg.reqId || !req.started) return;
+        // Settle the file first; a sink that failed to close is a failed download.
         if (req.received !== req.size) {
           this.failAll(`Received ${req.received} of ${req.size} bytes.`);
           return;
@@ -547,7 +550,12 @@ export class FileReceiver {
           return;
         }
         this.current = null;
-        await req.sink.close();
+        try {
+          await req.sink.close();
+        } catch (err) {
+          req.reject(err as Error);
+          return;
+        }
         this.onProgress(req);
         req.resolve();
         return;
@@ -564,7 +572,15 @@ export class FileReceiver {
     const req = this.current;
     if (!req || !req.started) return;
     const chunk = ev.data as ArrayBuffer;
-    await req.sink.write(chunk);
+    try {
+      await req.sink.write(chunk);
+    } catch (err) {
+      // The place the bytes were going is gone (a stopped download, a full
+      // disk). Say so and stop, rather than queue the rest of the file in
+      // memory behind a write that will never finish.
+      this.failAll((err as Error).message || 'The file could not be saved.');
+      return;
+    }
     req.crc.update(new Uint8Array(chunk));
     req.received += chunk.byteLength;
     this.report(req);
