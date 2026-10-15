@@ -209,6 +209,27 @@ export function uid(): string {
   ].join('-');
 }
 
+/**
+ * Quiets the page while bytes are moving.
+ *
+ * The animated background is many large composited layers, and every repaint
+ * on top of it - a progress bar, a percentage - makes the browser composite
+ * them again. Measured on 2026-10-15 with two real pages: a 200 MB transfer
+ * ran at about 11 MB/s with the background and 16 MB/s without it (15.5 MB/s
+ * before the redesign). So while a transfer runs, `calm` on <html> swaps the
+ * moving background for a still gradient in the same colours (styles.css).
+ *
+ * Call it on every progress report; the page comes back to life by itself
+ * 2.5 s after the last one, so a finished, cancelled or dropped transfer can
+ * never leave it stuck.
+ */
+let calmTimer: number | undefined;
+export function transferActivity(): void {
+  document.documentElement.classList.add('calm');
+  window.clearTimeout(calmTimer);
+  calmTimer = window.setTimeout(() => document.documentElement.classList.remove('calm'), 2500);
+}
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);

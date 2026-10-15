@@ -17,7 +17,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -195,7 +195,8 @@ async function singleFileCase(label, origin, size, dropAt) {
   check(`${label}: the download completed`, done);
   const got = await landed(dir, size);
   check(`${label}: the file is byte-identical`, got !== null && sha256(got.buf) === file.sha,
-    got ? sha256(got.buf).slice(0, 12) : 'not on disk');
+    got ? sha256(got.buf).slice(0, 12)
+      : `not on disk; in ${dir}: ${readdirSync(dir).map((n) => `${n} (${statSync(join(dir, n)).size})`).join(', ') || 'nothing'}`);
   // Whatever was still in the sender's buffer when the line was cut never
   // arrived, so the recipient asks from what it actually has - and after the
   // cut the sender sends exactly the rest, from there.

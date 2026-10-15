@@ -1,7 +1,7 @@
 import type { ClientMessage, FileMeta, FileStub, RTCIceServerConfig } from '../shared/protocol.js';
 import { MAX_FILES } from '../shared/protocol.js';
 import {
-  $, copyToClipboard, el, formatBytes, formatRate, RateMeter, Signaling, uid,
+  $, RateMeter, Signaling, copyToClipboard, el, formatBytes, formatRate, transferActivity, uid,
 } from './common.js';
 import { deriveKeys, newSecret, seal, unseal, type ShareKeys } from './crypto.js';
 import { renderDonateButton } from './donate.js';
@@ -469,6 +469,7 @@ function connect(r: Recipient): void {
 }
 
 function onSendProgress(recipient: Recipient, p: SendProgress): void {
+  if (p.sent < p.total) transferActivity();
   const pct = p.total === 0 ? 100 : (p.sent / p.total) * 100;
   recipient.bar.style.width = `${pct.toFixed(1)}%`;
   recipient.percent.textContent = `${pct.toFixed(0)}%`;

@@ -1,5 +1,5 @@
 import type { FileMeta, RTCIceServerConfig } from '../shared/protocol.js';
-import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling, uid } from './common.js';
+import { $, el, formatBytes, formatEta, formatRate, RateMeter, Signaling, uid, transferActivity } from './common.js';
 import { deriveKeys, seal, unseal } from './crypto.js';
 import { renderDonateButton } from './donate.js';
 import { createSink, initSaver, type SaveMode } from './save.js';
@@ -409,6 +409,7 @@ function renderFiles(): void {
 }
 
 function onReceiveProgress(d: ActiveDownload): void {
+  if (d.received < d.size) transferActivity();
   const row = progressRows.get(d.fileId);
   if (!row) return;
   const percent = d.size === 0 ? 100 : (d.received / d.size) * 100;
